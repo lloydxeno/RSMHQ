@@ -29,8 +29,79 @@ model_scalar_sex_grm <- multipleGroup(
 
 anova(model_scalar_sex_grm, model_metric_sex_grm, model_conf_sex_grm)
 #anova(model_scalar_sex_grm, model_metric_sex_grm, model_conf_sex_grm)
-                          AIC    SABIC       HQ      BIC    logLik     X2 df     p
+#                          AIC    SABIC       HQ      BIC    logLik     X2 df     p
 #model_scalar_sex_grm 13981.29 14043.31 14046.99 14154.47 -6955.647                
 #model_metric_sex_grm 13989.12 14100.75 14107.37 14300.84 -6931.561 48.173 28  0.01
 #model_conf_sex_grm   13985.40 14109.42 14116.78 14331.75 -6922.699 17.724  7 0.013
 #No metric invariance, No scalar invariance with a Graded Response
+#Therefore dichotomize and fit a 2PL model
+
+####Fit 2PL Models by  by Sex then test if slopes and intercepts can be equated
+
+model_conf_sex_2pl <- multipleGroup(RS_binary_f1, 1, group=RS$sex, itemtype="2PL", method = 'MHRM')
+summary(model_conf_sex_2pl)
+coef(model_conf_sex_2pl)
+#See fit statistics RMSEA < .05?
+itemfit(model_conf_sex_2pl, fit_stats = "S_X2")
+
+#All are below .05 except for rs7 in males: which is < .08: acceptable
+
+
+model_metric_sex_2pl <- multipleGroup(
+  data = RS_binary_f1,             
+  model = 1,
+  group = RS$sex,
+  itemtype = "2PL",             
+  invariance = "slopes",
+  method = 'MHRM'
+)
+itemfit(model_metric_sex_2pl, fit_stats = "S_X2")
+save.image("~/Students/Carley/PhD/RS survey/validation_gof_f1.RData")
+
+#metric not worse than conf
+model_scalar_sex_2pl <- multipleGroup(
+  data = RS_binary_f1,             # or RS_collapsed_f1 if using collapsed ordinal
+  model = 1,
+  group = RS$sex,
+  itemtype = "2PL",             # or "graded" if using ordinal
+  invariance = c("slopes", "intercepts"),
+  method = 'MHRM'
+)
+itemfit(model_scalar_sex_2pl, fit_stats = "S_X2")
+anova(model_scalar_sex_2pl, model_metric_sex_2pl, model_conf_sex_2pl)
+
+anova(model_scalar_sex_2pl, model_metric_sex_2pl, model_conf_sex_2pl)
+#                          AIC    SABIC       HQ      BIC    logLik     X2 df     p
+#model_scalar_sex_2pl 5040.137 5064.942 5066.413 5109.408 -2506.068                
+#model_metric_sex_2pl 5041.558 5078.766 5080.973 5145.465 -2499.779 12.578  7 0.083
+#model_conf_sex_2pl   5048.878 5098.489 5101.431 5187.420 -2496.439   6.68  7 0.463
+
+############Fit 2PL Models by Age Group and then see if Slopes and Intercepts can be Equated
+####Now fit 2PL models by 3 Age Groups
+#Now label the age groups
+RS_binary_f1$age_grp <- RS$age_grp
+
+
+model_conf_age <- multipleGroup(RS_binary_f1[-8], 1, group=RS_binary_f1$age_grp, 
+                                itemtype="2PL", method = 'MHRM')
+summary(model_conf_age)
+coef(model_conf_age)
+itemfit(model_conf_age, fit_stats = "S_X2")
+
+
+model_metric_age <- multipleGroup(RS_binary_f1[,-8], 1, 
+                                  group=RS_binary_f1$age_grp, 
+                                  itemtype="2PL", method = 'MHRM', 
+                                  invariance = "slopes")
+itemfit(model_metric_age, fit_stats = "S_X2")
+model_scalar_age <- multipleGroup(RS_binary_f1[,-8], 1, 
+                                  group=RS_binary_f1$age_grp, 
+                                  itemtype="2PL", method = 'MHRM', 
+                                  invariance = c("slopes", "intercepts"))
+
+itemfit(model_scalar_age, fit_stats = "S_X2")
+anova(model_scalar_age, model_metric_age, model_conf_age)
+#                      AIC    SABIC       HQ      BIC    logLik     X2 df     p
+#model_scalar_age 5037.428 5062.233 5063.704 5106.699 -2504.714                
+#model_metric_age 5044.561 5094.172 5097.114 5183.104 -2494.281 20.867 14 0.105
+#model_conf_age   5058.091 5132.507 5136.920 5265.904 -2487.046  14.47 14 0.415
