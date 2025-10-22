@@ -1,0 +1,51 @@
+#Load libraries
+library(dplyr)
+library(pROC)
+
+# - raw_score: integer from 0 to 7
+# - rs12: criterion score (1 to 5)
+
+
+# STEP 1: Define positive outcome on rs12
+
+# Define binary outcome for classification (adjust rs12 threshold if needed)
+RS_sum_f1_theta  <- RS_sum_f1_theta %>%
+  mutate(high_rs12 = ifelse(rs12 >= 4, 1, 0))  # 1 = positive case
+
+# STEP 2: Loop through raw score cutoffs and compute sensitivity/specificity
+
+#Youden's J = Sensitivity + Specificity - 1
+
+cutoff_results <- lapply(0:7, function(cut) {
+  pred <- ifelse(RS_sum_f1_theta$raw_score >= cut, 1, 0)
+  
+  tp <- sum(pred == 1 & RS_sum_f1_theta$high_rs12 == 1)
+  tn <- sum(pred == 0 & RS_sum_f1_theta$high_rs12 == 0)
+  fp <- sum(pred == 1 & RS_sum_f1_theta$high_rs12 == 0)
+  fn <- sum(pred == 0 & RS_sum_f1_theta$high_rs12 == 1)
+  
+  sensitivity <- ifelse((tp + fn) > 0, tp / (tp + fn), NA)
+  specificity <- ifelse((tn + fp) > 0, tn / (tn + fp), NA)
+  youdens_J <- sensitivity + specificity - 1
+  sens_spec <- sensitivity*specificity
+  
+  data.frame(
+    raw_score_cutoff = cut,
+    sensitivity = round(sensitivity, 3),
+    specificity = round(specificity, 3),
+    youdens_J = round(youdens_J, 3),
+    sensXspec = round(sens_spec, 3)
+  )
+}) %>% bind_rows()
+
+# Print result table
+print(cutoff_results)
+
+#Export to Stata 
+
+library(haven)
+write_dta(RS_sum_f1_theta, path = "Clinical_4_ROC.dta")
+###################Plotting the ROC Graph#######################
+use "\\cabinet.usask.ca\work$\llb296\My Documents\Students\Carley\PhD\RS survey\Clinical_4_ROC.dta"
+
+roctab high_rs12 raw_score, graph detail title("VRSMHQ Score and high RS12")
