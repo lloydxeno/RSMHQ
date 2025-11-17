@@ -1,0 +1,49 @@
+library(ggplot2)
+#############################Visualize DIF####################
+# Theta sequence
+theta <- matrix(seq(-4, 4, length.out = 300))
+
+# Extract group models
+mod_18to34 <- extract.group(model_metric_age_yo, group = "18to34")
+mod_55plus <- extract.group(model_metric_age_yo, group = "55+")
+
+# Get probabilities (no need for [[1]])
+
+p_18to34 <- probtrace(mod_18to34, Theta = theta)[, 2]
+p_55plus <- probtrace(mod_55plus, Theta = theta)[, 2]
+
+
+# Get difficulty parameters
+params <- coef(model_metric_age_yo, IRTpars = TRUE, simplify = TRUE)
+b_18to34 <- params$`18to34`$items["rs10", "b"]
+b_55plus  <- params$`55+`$items["rs10", "b"]
+
+# Assemble data for plotting
+df <- data.frame(
+  theta = rep(theta, 2),
+  prob = c(p_18to34, p_55plus),
+  group = rep(c("18to34", "55+"), each = length(theta))
+)
+
+# Plot
+library(ggplot2)
+ggplot(df, aes(x = theta, y = prob, linetype = group)) +
+  geom_line(linewidth = 1.2, color = "black") +
+  geom_vline(xintercept = b_18to34, linetype = "dashed", color = "black") +
+  geom_vline(xintercept = b_55plus, linetype = "dotted", color = "black") +
+  annotate("text", x = b_18to34, y = 0.9, 
+           label = paste0("b = ", round(b_18to34, 2)), 
+           angle = 90, color = "black", vjust = -0.5) +
+  annotate("text", x = b_55plus, y = 0.9, 
+           label = paste0("b = ", round(b_55plus, 2)), 
+           angle = 90, color = "black", vjust = -0.5) +
+  labs(
+    title = "Trace Curve for Item rs10 (Dichotomized)",
+    x = expression(theta),
+    y = "P(Endorsement)",
+    linetype = "Age group"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom"
+  )
