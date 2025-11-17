@@ -47,5 +47,5 @@ library(haven)
 write_dta(RS_sum_f1_theta, path = "Clinical_4_ROC.dta")
 ###################Plotting the ROC Graph#######################
 use "\\cabinet.usask.ca\work$\llb296\My Documents\Students\Carley\PhD\RS survey\Clinical_4_ROC.dta"
-
-roctab high_rs12 raw_score, graph detail title("VRSMHQ Score and high RS12")
+roctab high_rs12 raw_score, graph detail title("RSMHQ Score and high RS12") scheme(s1mono)
+graph export "\\cabinet.usask.ca\work$\llb296\My Documents\Students\Carley\PhD\RS survey\ROC.tiff", as(tif) name("Graph")
