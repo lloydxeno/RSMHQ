@@ -1,0 +1,884 @@
+
+
+#############################Invariance Testing by Sex for the 11-item cross-loaded model##################
+
+
+#Delete previous mg models estimated
+ls(pattern = "^mg")
+rm(list = ls(pattern = "^mg"))
+gc()
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+model_cross14_15_11 <- "
+F1 = 1-6, 10, 11
+F2 = 7-11
+COV = F1*F2
+"
+# Configural: item parameters free across groups
+mg_cross_config_sex <- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group =  RS_items11$sex,
+  itemtype = "graded",
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = TRUE,
+  SE.type = "Oakes",
+  technical = list(NCYCLES = 20000)
+)
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+
+# Metric: discrimination parameters equal
+mg_cross_metric_sex <- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group =  RS_items11$sex,
+  itemtype = "graded",
+  invariance = "slopes",
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = TRUE,
+  SE.type = "Oakes",
+  technical = list(NCYCLES = 20000)
+)
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+# Scalar: discrimination and threshold parameters equal
+mg_cross_scalar_sex <- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group =  RS_items11$sex,
+  itemtype = "graded",
+  invariance = c("slopes", "intercepts"),
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = TRUE,
+  SE.type = "Oakes",
+  technical = list(NCYCLES = 20000)
+)
+
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+
+anova(mg_cross_scalar_sex, mg_cross_metric_sex, mg_cross_config_sex)
+# AIC    SABIC       HQ      BIC    logLik     X2 df     p
+# mg_cross_scalar_sex 24084.25 24188.78 24194.99 24376.18 -11983.12                
+# mg_cross_metric_sex 24102.88 24285.37 24296.20 24612.51 -11948.44 69.371 44 0.009
+# mg_cross_config_sex 24112.73 24318.26 24330.45 24686.69 -11940.36 16.151 13 0.241
+
+
+#Conclusion: Common slopes across sexes is okay but not thresholds.
+
+####Now determine which item contribute to threshold differences
+mg11_scalar_DIF_sex <- multipleGroup(
+  data     = items11,
+  model    = model_cross14_15_11,
+  group    = RS_items11$sex,
+  itemtype = "graded",
+  invariance = c(
+    "slopes",
+    "intercepts"
+  ),
+  method   = "EM",
+  quadpts  = 41,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 20000)
+)
+
+DIF11_thresholds_sex <- DIF(
+  mg11_scalar_DIF_sex,
+  which.par = c("d1", "d2", "d3", "d4"),
+  items2test = 1:11,
+  scheme = "drop",
+  p.adjust = "bonferroni"
+)
+
+DIF11_thresholds_sex
+
+# groups converged     AIC  SABIC     HQ    BIC     X2 df     p adj_p
+# rs1  Female,Male      TRUE  -6.738  0.349  0.770 13.054 14.738  4 0.005 0.058
+# rs2  Female,Male      TRUE  -0.365  6.722  7.142 19.426  8.365  4 0.079 0.870
+# rs3  Female,Male      TRUE  -4.043  3.044  3.465 15.749 12.043  4 0.017 0.187
+# rs5  Female,Male      TRUE  -2.070  5.017  5.438 17.722  10.07  4 0.039 0.432
+# rs6  Female,Male      TRUE  -7.067  0.021  0.441 12.725 15.067  4 0.005 0.050
+# rs7  Female,Male      TRUE   1.440  8.527  8.947 21.232   6.56  4 0.161 1.000
+# rs11 Female,Male      TRUE  -2.826  4.261  4.682 16.966 10.826  4 0.029 0.315
+# rs12 Female,Male      TRUE   2.247  9.334  9.754 22.039  5.753  4 0.218 1.000
+# rs13 Female,Male      TRUE   1.387  8.474  8.894 21.178  6.613  4 0.158 1.000
+# rs14 Female,Male      TRUE   1.016  8.104  8.524 20.808  6.984  4 0.137 1.000
+# rs15 Female,Male      TRUE -11.392 -4.305 -3.885  8.400 19.392  4 0.001 0.007
+
+###########Check which thresholds differ
+
+# The tested thresholds must still be constrained across groups.
+baseline_model <- mg11_scalar_DIF_sex
+
+# Locate RS5 and RS15 without relying on their column positions
+items_test <- match(
+  c("rs5", "rs15"),
+  colnames(items11)
+)
+
+stopifnot(!anyNA(items_test))
+
+thresholds <- paste0("d", 1:4)
+
+threshold_DIF_list <- lapply(thresholds, function(threshold) {
+  
+  result <- DIF(
+    baseline_model,
+    which.par = threshold,
+    items2test = items_test,
+    scheme = "drop",
+    p.adjust = "none"
+  )
+  
+  result <- as.data.frame(result)
+  result$item <- rownames(result)
+  result$threshold <- threshold
+  rownames(result) <- NULL
+  
+  result
+})
+
+threshold_DIF <- do.call(rbind, threshold_DIF_list)
+
+# Adjust across all eight follow-up tests:
+# 2 items × 4 thresholds
+threshold_DIF$p_BH <- p.adjust(
+  threshold_DIF$p,
+  method = "BH"
+)
+
+# Arrange and display the results
+threshold_DIF <- threshold_DIF[
+  ,
+  c(
+    "item", "threshold", "groups", "converged",
+    "X2", "df", "p", "p_BH"
+  )
+]
+
+threshold_DIF[
+  order(threshold_DIF$item, threshold_DIF$threshold),
+]
+
+# item threshold      groups converged        X2 df            p        p_BH
+# 2 rs15        d1 Female,Male      TRUE 12.321087  1 0.0004478699 0.002532371
+# 4 rs15        d2 Female,Male      TRUE  7.858980  1 0.0050568902 0.010658807
+# 6 rs15        d3 Female,Male      TRUE 11.676066  1 0.0006330927 0.002532371
+# 8 rs15        d4 Female,Male      TRUE  5.514350  1 0.0188610822 0.025148110
+# 1  rs5        d1 Female,Male      TRUE  5.163901  1 0.0230610400 0.026053231
+# 3  rs5        d2 Female,Male      TRUE  7.764127  1 0.0053294035 0.010658807
+# 5  rs5        d3 Female,Male      TRUE  7.337964  1 0.0067513248 0.010802120
+# 7  rs5        d4 Female,Male      TRUE  4.952483  1 0.0260532314 0.026053231
+
+
+#Examine the actual parameter differences
+#Use the metric model
+cf11_sex <- coef(
+  mg_cross_metric_sex,
+  IRTpars = TRUE,
+  simplify = TRUE
+)
+
+cf11_sex$Female$items["rs15", c("a2","d1", "d2", "d3", "d4")]
+# a2         d1         d2         d3         d4 
+# 2.1617842  0.3658812 -0.7064092 -2.8179360 -4.9367782 
+
+cf11_sex$Male$items["rs15", c("a2","d1","d2", "d3", "d4")]
+# a2         d1         d2         d3         d4 
+# 2.1617842  1.2894319 -0.1916118 -1.8723040 -4.4833311 
+
+#Intuition: How few of the group is required to reach a 50% probability of endorsement?  Lower number means, 
+#more "concentrated", more "concentrated" means higher propensity to conquer a threshold. 
+
+# Holding Factor 1 at zero, males reached a 50% probability of selecting each response category 
+# or a higher category at lower levels of Factor 2 than females. Thus, among respondents with comparable levels of R/S Expectations, 
+# males were generally more likely to endorse RS15 at or above each response threshold.
+
+####Convert the d's to b's
+####Use mirt's native parameterization (d's instead of b's)
+### b_k = -(d_k/a) for the specific factor
+###Since we have a bifactor model, a2 would be the relevant one.
+
+
+
+cf11_sex_native <- coef(
+  mg_cross_metric_sex,
+  IRTpars = FALSE,
+  simplify = TRUE
+)
+
+groups <- c("Female", "Male")
+items  <- c("rs5", "rs15")
+
+get_b_F2 <- function(group, item) {
+  
+  pars <- cf11_sex_native[[group]]$items[item, ]
+  
+  a2 <- pars["a2"]
+  d  <- pars[paste0("d", 1:4)]
+  
+  data.frame(
+    group = group,
+    item = item,
+    threshold = paste0("b", 1:4),
+    b_F2 = if (abs(a2) > 1e-10) -as.numeric(d) / as.numeric(a2) else NA
+  )
+}
+
+b_F2_results <- do.call(
+  rbind,
+  lapply(groups, function(g) {
+    lapply(items, function(i) get_b_F2(g, i))
+  }) |> unlist(recursive = FALSE)
+)
+
+# 
+# 
+# b_F2_results
+# group item threshold        b_F2
+# 1  Female  rs5        b1          NA
+# 2  Female  rs5        b2          NA
+# 3  Female  rs5        b3          NA
+# 4  Female  rs5        b4          NA
+# 5  Female rs15        b1 -0.16924962
+# 6  Female rs15        b2  0.32677139
+# 7  Female rs15        b3  1.30352324
+# 8  Female rs15        b4  2.28365912
+# 9    Male  rs5        b1          NA
+# 10   Male  rs5        b2          NA
+# 11   Male  rs5        b3          NA
+# 12   Male  rs5        b4          NA
+# 13   Male rs15        b1 -0.59646653
+# 14   Male rs15        b2  0.08863596
+# 15   Male rs15        b3  0.86609197
+# 16   Male rs15        b4  2.07390314
+# ####Plot of RS15 ICC.
+
+coef(
+  mg_cross_partial_scalar_sex,
+  IRTpars = FALSE,
+  simplify = TRUE
+)
+
+################This is the figure that shows the inadequacy of the scalar model#####
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# Factor 2 parameters for RS15
+rs15_pars <- data.frame(
+  sex = c("Female", "Male"),
+  a2  = c(2.1617842, 2.1617842),
+  b1  = c(-0.16924962, -0.59646653),
+  b2  = c( 0.32677139,  0.08863596),
+  b3  = c( 1.30352324,  0.86609197),
+  b4  = c( 2.28365912,  2.07390314)
+)
+
+# Convert thresholds to long format
+rs15_long <- rs15_pars |>
+  pivot_longer(
+    cols = starts_with("b"),
+    names_to = "threshold",
+    values_to = "b"
+  ) |>
+  mutate(
+    threshold = factor(
+      threshold,
+      levels = c("b1", "b2", "b3", "b4"),
+      labels = c(
+        'Threshold 1:\n"Not at all" | "Little"',
+        'Threshold 2:\n"Little" | "Medium"',
+        'Threshold 3:\n"Medium" | "Very"',
+        'Threshold 4:\n"Very" | "Extremely"'
+      )
+    )
+  )
+
+# Range of Factor 2 values
+theta_grid <- data.frame(
+  theta_F2 = seq(-3.5, 3.5, length.out = 501)
+)
+
+# Cumulative probabilities:
+# P(Y >= category k | theta_F1 = 0, theta_F2)
+icc_data <- crossing(rs15_long, theta_grid) |>
+  mutate(
+    probability = plogis(a2 * (theta_F2 - b))
+  )
+
+ggplot(
+  icc_data,
+  aes(
+    x = theta_F2,
+    y = probability,
+    colour = sex,
+    linetype = sex,
+    group = sex
+  )
+) +
+  geom_hline(
+    yintercept = 0.50,
+    linewidth = 0.35,
+    colour = "grey65"
+  ) +
+  geom_vline(
+    data = rs15_long,
+    aes(
+      xintercept = b,
+      colour = sex,
+      linetype = sex
+    ),
+    linewidth = 0.4,
+    alpha = 0.6,
+    show.legend = FALSE
+  ) +
+  geom_line(linewidth = 1) +
+  facet_wrap(~ threshold, nrow = 2) +
+  scale_colour_manual(
+    name = "Sex",
+    values = c(
+      "Female" = "red",
+      "Male" = "blue"
+    )
+  ) +
+  scale_linetype_manual(
+    name = "Sex",
+    values = c(
+      "Female" = "solid",
+      "Male" = "dashed"
+    )
+  ) +
+  scale_x_continuous(
+    breaks = seq(-3, 3, by = 1)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, by = 0.20),
+    labels = scales::label_number(accuracy = 0.1)
+  ) +
+  labs(
+    title = "RS15 Cumulative Item Characteristic Curves by Sex",
+    subtitle = "Factor 1 held at zero",
+    x = "Latent Level of Factor 2: R/S Expectations",
+    y = "Probability of Responding at or Above the Threshold"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold")
+  )
+
+#########################Try to free the 4 RS15 parameters of the scalar model##########
+
+vals <- mod2values(mg_cross_scalar_sex)
+
+vals[
+  vals$item == "rs15" &
+    vals$name %in% c("d1", "d2", "d3", "d4"),
+  c("group", "item", "name", "parnum", "value", "const")
+]
+
+
+#Now create a partial scalar model
+#by freeing constraints 52, 53, 54
+
+# Start from the fitted full scalar model
+vals_partial <- mod2values(mg_cross_scalar_sex)
+# group item name parnum  value const
+# 63  Female rs15   d1     63  0.727    54
+# 64  Female rs15   d2     64 -0.492    55
+# 65  Female rs15   d3     65 -2.425    56
+# 66  Female rs15   d4     66 -4.755    57
+# 134   Male rs15   d1    134  0.727    54
+# 135   Male rs15   d2    135 -0.492    55
+# 136   Male rs15   d3    136 -2.425    56
+# 137   Male rs15   d4    137 -4.755    57
+# Free rs15 d1, d2, and d3 across sex
+vals_partial$const[
+  vals_partial$const %in% c(54,55,56,57)
+] <- "none"
+
+# Check that only d4 remains constrained for rs15
+vals_partial[
+  vals_partial$item == "rs15" &
+    vals_partial$name %in% c("d1", "d2", "d3", "d4"),
+  c("group", "item", "name", "parnum", "value", "const")
+]
+
+# group item name parnum  value const
+# 63  Female rs15   d1     63  0.727  none
+# 64  Female rs15   d2     64 -0.492  none
+# 65  Female rs15   d3     65 -2.425  none
+# 66  Female rs15   d4     66 -4.755  none
+# 134   Male rs15   d1    134  0.727  none
+# 135   Male rs15   d2    135 -0.492  none
+# 136   Male rs15   d3    136 -2.425  none
+# 137   Male rs15   d4    137 -4.755  none
+
+###Now fit a partial scalar model
+anchor_items <- setdiff(colnames(items11), "rs15")
+
+mg_cross_partial_scalar_sex <- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group = RS_items11$sex,
+  itemtype = "graded",
+  invariance = c(
+    "slopes",      # Constrain every slope, including RS15 a1 and a2
+    anchor_items   # Constrain all parameters of every item except RS15
+  ),
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = TRUE,
+  SE.type = "Oakes",
+  technical = list(NCYCLES = 20000)
+)
+
+anova(
+  mg_cross_scalar_sex,
+  mg_cross_partial_scalar_sex,
+  mg_cross_metric_sex,
+  mg_cross_config_sex
+)
+
+# AIC    SABIC       HQ      BIC    logLik     X2 df     p
+# mg_cross_scalar_sex         24084.25 24188.78 24194.99 24376.18 -11983.12                
+# mg_cross_partial_scalar_sex 24077.69 24189.31 24195.93 24389.41 -11975.84 14.562  4 0.006
+# mg_cross_metric_sex         24102.88 24285.37 24296.20 24612.51 -11948.44 54.809 40 0.059
+# mg_cross_config_sex         24112.73 24318.26 24330.45 24686.69 -11940.36 16.151 13 0.241
+
+
+#Now do DRF
+
+
+#Start from the partial scalar invariance model
+extract.mirt(mg_cross_partial_scalar_sex, "groupNames")
+# [1] "Female" "Male"  
+#Now do DRF
+# Confirm item order
+colnames(items11)
+
+# Items assigned to each raw subscale
+F1_names <- c(
+  "rs1", "rs2", "rs3", "rs5", "rs6", "rs7"
+)
+
+F2_names <- c(
+  "rs11", "rs12", "rs13", "rs14", "rs15"
+)
+
+# Obtain their column positions safely
+F1_items <- match(F1_names, colnames(items11))
+F2_items <- match(F2_names, colnames(items11))
+
+stopifnot(!anyNA(F1_items))
+stopifnot(!anyNA(F2_items))
+
+# Factor 1: R/S Relevance
+drf_F1_sex <- DRF(
+  mg_cross_partial_scalar_sex,
+  focal_items = F1_items,
+  pairwise = TRUE
+)
+
+# Factor 2: R/S Expectations
+drf_F2_sex <- DRF(
+  mg_cross_partial_scalar_sex,
+  focal_items = F2_items,
+  pairwise = TRUE
+)
+
+drf_F1_sex
+drf_F2_sex
+
+
+#######################################Now Plot partial_scalar_sex for Factor 2#############
+library(mirt)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+
+# Factor 2 items used in raw subscale scoring
+F2_names <- c("rs11", "rs12", "rs13", "rs14", "rs15")
+
+F2_items <- match(F2_names, colnames(items11))
+stopifnot(!anyNA(F2_items))
+
+# Factor 2 range; Factor 1 is held at zero
+theta_F2 <- seq(-3.5, 3.5, length.out = 501)
+
+Theta <- cbind(
+  F1 = 0,
+  F2 = theta_F2
+)
+
+# Calculate the expected Factor 2 summed score for one group
+expected_F2_score <- function(model, group_name) {
+  
+  group_model <- extract.group(model, group_name)
+  
+  item_scores <- sapply(F2_items, function(item_number) {
+    
+    item_object <- extract.item(
+      group_model,
+      item_number
+    )
+    
+    category_probabilities <- probtrace(
+      item_object,
+      Theta
+    )
+    
+    category_scores <- 0:(ncol(category_probabilities) - 1)
+    
+    as.numeric(
+      category_probabilities %*% category_scores
+    )
+  })
+  
+  rowSums(item_scores)
+}
+
+# Expected subscale scores by sex
+score_data <- data.frame(
+  theta_F2 = theta_F2,
+  Female = expected_F2_score(
+    mg_cross_partial_scalar_sex,
+    "Female"
+  ),
+  Male = expected_F2_score(
+    mg_cross_partial_scalar_sex,
+    "Male"
+  )
+)
+
+# Long form for plotting the two score curves
+score_long <- score_data |>
+  pivot_longer(
+    cols = c(Female, Male),
+    names_to = "sex",
+    values_to = "expected_score"
+  )
+
+# Female-minus-male difference
+difference_data <- score_data |>
+  mutate(
+    score_difference = Female - Male
+  )
+
+#the upper expected-score panel:
+
+
+p_scores <- ggplot(
+  score_long,
+  aes(
+    x = theta_F2,
+    y = expected_score,
+    colour = sex,
+    linetype = sex
+  )
+) +
+  geom_line(linewidth = 1.1) +
+  scale_colour_manual(
+    name = "Sex",
+    values = c(
+      "Female" = "red",
+      "Male" = "blue"
+    )
+  ) +
+  scale_linetype_manual(
+    name = "Sex",
+    values = c(
+      "Female" = "solid",
+      "Male" = "dashed"
+    )
+  ) +
+  scale_x_continuous(
+    breaks = seq(-3, 3, by = 1)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 20),
+    breaks = seq(0, 20, by = 5)
+  ) +
+  labs(
+    title = "A. Expected Factor 2 Summed Scores",
+    subtitle = "Factor 1 held at zero",
+    x = NULL,
+    y = "Expected Factor 2 Score"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold")
+  )
+
+#Create the enlarged difference panel:
+
+p_difference <- ggplot(
+  difference_data,
+  aes(
+    x = theta_F2,
+    y = score_difference
+  )
+) +
+  geom_hline(
+    yintercept = 0,
+    colour = "grey55",
+    linewidth = 0.5
+  ) +
+  geom_line(
+    colour = "black",
+    linewidth = 1
+  ) +
+  scale_x_continuous(
+    breaks = seq(-3, 3, by = 1)
+  ) +
+  labs(
+    title = "B. Difference in Expected Scores",
+    x = "Latent Level of Factor 2: R/S Expectations",
+    y = "Female Minus Male"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold")
+  )
+
+###Combine and save
+figure_A2 <- p_scores / p_difference +
+  plot_layout(
+    heights = c(2, 1),
+    guides = "collect"
+  ) +
+  plot_annotation(
+    title = "Factor 2 Differential Response Functioning by Sex",
+    subtitle = paste0(
+      "Partial scalar model: ",
+      "sDRF = 0.115, uDRF = 0.115, dDRF = 0.130"
+    )
+  ) &
+  theme(
+    legend.position = "bottom"
+  )
+
+figure_A2
+
+ggsave(
+  filename = "RS_F2_DRF_sex.png",
+  plot = figure_A2,
+  width = 10,
+  height = 8,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+#########################Ruler Visualization############################
+
+library(dplyr)
+library(ggplot2)
+
+# ------------------------------------------------------------
+# 1. Expected F2 score curves by sex
+# ------------------------------------------------------------
+
+theta_grid <- seq(-3, 3, length.out = 501)
+
+curve_female <- data.frame(
+  theta = theta_grid,
+  expected_score = expected_F2_score(
+    mg_cross_partial_scalar_sex,
+    "Female"
+  )
+)
+
+curve_male <- data.frame(
+  theta = theta_grid,
+  expected_score = expected_F2_score(
+    mg_cross_partial_scalar_sex,
+    "Male"
+  )
+)
+
+# Diagnostic plot: verify monotonicity
+plot(
+  curve_female$theta,
+  curve_female$expected_score,
+  type = "l",
+  lty = 1,
+  lwd = 2,
+  xlab = expression(paste("F2 ", theta)),
+  ylab = "F2 Expected Score",
+  ylim = range(
+    curve_female$expected_score,
+    curve_male$expected_score
+  )
+)
+
+lines(
+  curve_male$theta,
+  curve_male$expected_score,
+  lty = 2,
+  lwd = 2
+)
+
+legend(
+  "topleft",
+  legend = c("Female", "Male"),
+  lty = c(1, 2),
+  lwd = 2,
+  bty = "n"
+)
+
+# ------------------------------------------------------------
+# 2. Convert expected raw scores into theta locations
+# ------------------------------------------------------------
+
+score_marks <- 1:19
+
+theta_female <- approx(
+  x = curve_female$expected_score,
+  y = curve_female$theta,
+  xout = score_marks
+)$y
+
+theta_male <- approx(
+  x = curve_male$expected_score,
+  y = curve_male$theta,
+  xout = score_marks
+)$y
+
+ruler_sex <- bind_rows(
+  data.frame(
+    group = "Female",
+    score = score_marks,
+    theta = theta_female
+  ),
+  data.frame(
+    group = "Male",
+    score = score_marks,
+    theta = theta_male
+  )
+)
+
+# Inspect clinically relevant region
+ruler_sex |>
+  filter(score %in% 10:19) |>
+  arrange(score, group)
+# ------------------------------------------------------------
+# 3. F2 rulers by sex
+# ------------------------------------------------------------
+
+ruler_sex <- ruler_sex |>
+  mutate(
+    y = ifelse(group == "Female", 2, 1),
+    highlight = score == 15
+  )
+
+ggplot(ruler_sex, aes(x = theta, y = y)) +
+  
+  # Horizontal rulers
+  annotate(
+    "segment",
+    x = -2.5, xend = 2.5,
+    y = 2, yend = 2,
+    linewidth = 0.8
+  ) +
+  annotate(
+    "segment",
+    x = -2.5, xend = 2.5,
+    y = 1, yend = 1,
+    linewidth = 0.8
+  ) +
+  
+  # Ordinary score notches
+  geom_segment(
+    data = subset(ruler_sex, !highlight),
+    aes(
+      x = theta,
+      xend = theta,
+      y = y - 0.08,
+      yend = y + 0.08
+    ),
+    linewidth = 0.5
+  ) +
+  
+  # Highlight raw score 15
+  geom_segment(
+    data = subset(ruler_sex, highlight),
+    aes(
+      x = theta,
+      xend = theta,
+      y = y - 0.13,
+      yend = y + 0.13
+    ),
+    color = "red",
+    linewidth = 1.2
+  ) +
+  
+  # Ordinary raw-score labels
+  geom_text(
+    data = subset(ruler_sex, !highlight),
+    aes(
+      x = theta,
+      y = y + 0.17,
+      label = score
+    ),
+    size = 3
+  ) +
+  
+  # Highlight score 15 label
+  geom_text(
+    data = subset(ruler_sex, highlight),
+    aes(
+      x = theta,
+      y = y + 0.20,
+      label = score
+    ),
+    color = "red",
+    fontface = "bold",
+    size = 4
+  ) +
+  
+  scale_y_continuous(
+    breaks = c(1, 2),
+    labels = c("Male", "Female"),
+    limits = c(0.6, 2.5)
+  ) +
+  
+  scale_x_continuous(
+    limits = c(-3, 3),
+    breaks = -3:3
+  ) +
+  
+  labs(
+    title = "Factor 2 Score Rulers by Sex",
+    subtitle =
+      "Raw-score locations derived from the partial scalar invariance model",
+    x = expression(paste("F2 ", theta)),
+    y = NULL
+  ) +
+  
+  theme_classic() +
+  
+  theme(
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
