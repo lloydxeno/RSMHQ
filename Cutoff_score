@@ -1,0 +1,381 @@
+##########################Calculate Model-based Omega for Crossloaded model##################
+#install.packages("lavaan", dependencies = TRUE)
+#install.packages("semTools", dependencies = TRUE)
+library(lavaan)
+library(semTools)
+
+
+model <- '
+F1 =~ rs1 + rs2 + rs3 + rs5 + rs6 + rs7 + rs14 + rs15
+F2 =~ rs11 + rs12 + rs13 + rs14 + rs15
+'
+
+fit_cross_lavaan<- cfa(
+  model,
+  data = RS_items11[, 1:11],
+  ordered = c("rs1","rs2","rs3","rs5","rs6","rs7",
+              "rs11","rs12","rs13","rs14","rs15"),
+  estimator = "WLSMV",
+  std.lv = TRUE #Fix the latent variances to 1 instead of 
+)
+
+summary(
+  fit_cross_lavaan,
+  fit.measures = TRUE,
+  standardized = TRUE
+)
+# 
+# lavaan 0.7-2 ended normally after 46 iterations
+# 
+# Estimator                                       DWLS
+# Optimization method                           NLMINB
+# Number of model parameters                        58
+# 
+# Number of observations                          1041
+# 
+# Model Test User Model:
+#   Standard      Scaled
+# Test Statistic                                76.460     269.874
+# Degrees of freedom                                41          41
+# P-value (Unknown)                                 NA       0.000
+# Scaling correction factor                                  0.295
+# Shift parameter                                           10.973
+# simple second-order correction                                
+# 
+# Model Test Baseline Model:
+#   
+#   Test statistic                            273032.887   76728.249
+# Degrees of freedom                                55          55
+# P-value                                           NA       0.000
+# Scaling correction factor                                  3.560
+# 
+# User Model versus Baseline Model:
+#   
+#   Comparative Fit Index (CFI)                    1.000       0.997
+# Tucker-Lewis Index (TLI)                       1.000       0.996
+# 
+# Robust Comparative Fit Index (CFI)                         0.982
+# Robust Tucker-Lewis Index (TLI)                            0.976
+# 
+# Root Mean Square Error of Approximation:
+#   
+#   RMSEA                                          0.029       0.073
+# 90 Percent confidence interval - lower         0.019       0.065
+# 90 Percent confidence interval - upper         0.039       0.082
+# P-value H_0: RMSEA <= 0.050                    1.000       0.000
+# P-value H_0: RMSEA >= 0.080                    0.000       0.096
+# 
+# Robust RMSEA                                               0.079
+# 90 Percent confidence interval - lower                     0.070
+# 90 Percent confidence interval - upper                     0.088
+# P-value H_0: Robust RMSEA <= 0.050                         0.000
+# P-value H_0: Robust RMSEA >= 0.080                         0.419
+# 
+# Standardized Root Mean Square Residual:
+#   
+#   SRMR                                           0.017       0.017
+# 
+# Goodness of Fit Index:
+#   
+#   Goodness of Fit Index (GFI)                    0.994            
+# 90 Percent confidence interval - lower         0.989            
+# 90 Percent confidence interval - upper         0.997            
+# 
+# Robust GFI                                                 0.956
+# 90 Percent confidence interval - lower                     0.946
+# 90 Percent confidence interval - upper                     0.965
+# 
+# Parameter Estimates:
+#   
+#   Parameterization                               Delta
+# Standard errors                           Robust.sem
+# Information                                 Expected
+# Information saturated (h1) model        Unstructured
+# 
+# Latent Variables:
+#   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+# F1 =~                                                                 
+#   rs1               0.940    0.005  208.508    0.000    0.940    0.940
+# rs2               0.946    0.004  219.771    0.000    0.946    0.946
+# rs3               0.952    0.004  257.661    0.000    0.952    0.952
+# rs5               0.953    0.004  251.919    0.000    0.953    0.953
+# rs6               0.931    0.005  183.890    0.000    0.931    0.931
+# rs7               0.909    0.007  137.693    0.000    0.909    0.909
+# rs14              0.307    0.024   12.898    0.000    0.307    0.307
+# rs15              0.339    0.030   11.477    0.000    0.339    0.339
+# F2 =~                                                                 
+#   rs11              0.802    0.014   57.226    0.000    0.802    0.802
+# rs12              0.905    0.009  101.068    0.000    0.905    0.905
+# rs13              0.892    0.009   98.511    0.000    0.892    0.892
+# rs14              0.653    0.023   28.938    0.000    0.653    0.653
+# rs15              0.570    0.028   20.627    0.000    0.570    0.570
+# 
+# Covariances:
+#   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+# F1 ~~                                                                 
+#   F2                0.721    0.017   42.244    0.000    0.721    0.721
+# 
+# Thresholds:
+#   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+# rs1|t1           -0.740    0.043  -17.217    0.000   -0.740   -0.740
+# rs1|t2           -0.247    0.039   -6.283    0.000   -0.247   -0.247
+# rs1|t3            0.340    0.040    8.564    0.000    0.340    0.340
+# rs1|t4            0.943    0.046   20.566    0.000    0.943    0.943
+# rs2|t1           -0.697    0.042  -16.393    0.000   -0.697   -0.697
+# rs2|t2           -0.269    0.039   -6.838    0.000   -0.269   -0.269
+# rs2|t3            0.358    0.040    8.995    0.000    0.358    0.358
+# rs2|t4            1.054    0.048   22.036    0.000    1.054    1.054
+# rs3|t1           -0.654    0.042  -15.561    0.000   -0.654   -0.654
+# rs3|t2           -0.257    0.039   -6.530    0.000   -0.257   -0.257
+# rs3|t3            0.355    0.040    8.934    0.000    0.355    0.355
+# rs3|t4            1.075    0.048   22.286    0.000    1.075    1.075
+# rs5|t1           -0.681    0.042  -16.097    0.000   -0.681   -0.681
+# rs5|t2           -0.272    0.039   -6.900    0.000   -0.272   -0.272
+# rs5|t3            0.242    0.039    6.159    0.000    0.242    0.242
+# rs5|t4            0.962    0.046   20.836    0.000    0.962    0.962
+# rs6|t1           -0.593    0.041  -14.302    0.000   -0.593   -0.593
+# rs6|t2           -0.122    0.039   -3.128    0.002   -0.122   -0.122
+# rs6|t3            0.481    0.041   11.875    0.000    0.481    0.481
+# rs6|t4            1.184    0.051   23.410    0.000    1.184    1.184
+# rs7|t1           -0.570    0.041  -13.819    0.000   -0.570   -0.570
+# rs7|t2           -0.144    0.039   -3.685    0.000   -0.144   -0.144
+# rs7|t3            0.412    0.040   10.285    0.000    0.412    0.412
+# rs7|t4            1.184    0.051   23.410    0.000    1.184    1.184
+# rs14|t1          -0.556    0.041  -13.516    0.000   -0.556   -0.556
+# rs14|t2          -0.146    0.039   -3.747    0.000   -0.146   -0.146
+# rs14|t3           0.452    0.040   11.204    0.000    0.452    0.452
+# rs14|t4           1.234    0.052   23.832    0.000    1.234    1.234
+# rs15|t1          -0.267    0.039   -6.777    0.000   -0.267   -0.267
+# rs15|t2           0.076    0.039    1.952    0.051    0.076    0.076
+# rs15|t3           0.669    0.042   15.859    0.000    0.669    0.669
+# rs15|t4           1.407    0.057   24.838    0.000    1.407    1.407
+# rs11|t1          -0.853    0.044  -19.178    0.000   -0.853   -0.853
+# rs11|t2          -0.360    0.040   -9.057    0.000   -0.360   -0.360
+# rs11|t3           0.322    0.040    8.133    0.000    0.322    0.322
+# rs11|t4           1.132    0.049   22.912    0.000    1.132    1.132
+# rs12|t1          -0.415    0.040  -10.346    0.000   -0.415   -0.415
+# rs12|t2           0.081    0.039    2.075    0.038    0.081    0.081
+# rs12|t3           0.712    0.043   16.688    0.000    0.712    0.712
+# rs12|t4           1.504    0.060   25.099    0.000    1.504    1.504
+# rs13|t1          -0.517    0.041  -12.667    0.000   -0.517   -0.517
+# rs13|t2          -0.078    0.039   -2.013    0.044   -0.078   -0.078
+# rs13|t3           0.547    0.041   13.335    0.000    0.547    0.547
+# rs13|t4           1.339    0.055   24.525    0.000    1.339    1.339
+# 
+# Variances:
+#   Estimate  Std.Err  z-value  P(>|z|)   Std.lv  Std.all
+# .rs1               0.117                               0.117    0.117
+# .rs2               0.106                               0.106    0.106
+# .rs3               0.093                               0.093    0.093
+# .rs5               0.092                               0.092    0.092
+# .rs6               0.134                               0.134    0.134
+# .rs7               0.174                               0.174    0.174
+# .rs14              0.191                               0.191    0.191
+# .rs15              0.281                               0.281    0.281
+# .rs11              0.357                               0.357    0.357
+# .rs12              0.181                               0.181    0.181
+# .rs13              0.204                               0.204    0.204
+# F1                1.000                               1.000    1.000
+# F2                1.000                               1.000    1.000
+# 
+
+
+
+compRelSEM(fit_cross_lavaan)
+compRelSEM(fit_cross_lavaan)
+# $F1
+# 
+# Composite `F1` is composed of observed variables:
+#   rs1, rs2, rs3, rs5, rs6, rs7, rs14, rs15
+# True-score variance is represented by common factor(s):
+#   F1, F2
+# Total variance of composite `F1` determined from the unrestricted model.
+# The proportion attributable to "true" scores is its model-based estimate of reliability ("omega"):
+#   
+#   [1] 0.969
+# 
+# $F2
+# 
+# Composite `F2` is composed of observed variables:
+#   rs14, rs15, rs11, rs12, rs13
+# True-score variance is represented by common factor(s):
+#   F1, F2
+# Total variance of composite `F2` determined from the unrestricted model.
+# The proportion attributable to "true" scores is its model-based estimate of reliability ("omega"):
+#   
+#   [1] 0.924
+
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+#####################Calculate Correlation with RSIPAS#######
+library(dplyr)
+
+#Take the Rsipas items and merge to dat_score
+nrow(dat_score)
+nrow(RS_validation_minimal)
+
+
+
+stopifnot(nrow(dat_score) == nrow(RS_validation_minimal))
+
+rsipas_items <- RS_validation_minimal[, paste0("rsipas", 1:10)]
+dat_score <- cbind(dat_score, rsipas_items)
+
+#Set raw_F1 and raw_F2 to NULL because
+#these were based on the simple model
+#Let RS14 and RS15 count towards both factors
+
+dat_score$raw_F1 <- NULL
+dat_score$raw_F2 <- NULL
+
+
+#Recalculate using cross-loaded model
+dat_score$raw_F1 <- rowSums(
+  dat_score[, c(
+    "rs1", "rs2", "rs3", "rs5", "rs6", "rs7",
+    "rs14", "rs15"
+  )],
+  na.rm = FALSE
+)
+
+dat_score$raw_F2 <- rowSums(
+  dat_score[, c(
+    "rs11", "rs12", "rs13", "rs14", "rs15"
+  )],
+  na.rm = FALSE
+)
+
+table(dat_score$raw_F1)
+table(dat_score$raw_F2)
+
+###Omit item 6 see note in Oxhandler
+
+rsipas_score_items <- paste0("rsipas", c(1:5, 7:10))
+
+dat_score$rsipas_total <- rowSums(
+  dat_score[, rsipas_score_items],
+  na.rm = FALSE
+)
+
+
+
+###Reformat to numeric, remove Stata formats
+library(haven)
+
+
+#Verify
+sapply(dat_score[, paste0("rsipas", 1:10)], class)
+lapply(dat_score[, paste0("rsipas", 1:10)], table, useNA = "ifany")
+
+
+#Display result
+summary(dat_score$rsipas_total)
+table(dat_score$rsipas_total, useNA = "ifany")
+
+####Correlate F1 and F2 with RSIPAS total
+vars_cor <- dat_score[, c("raw_F1", "raw_F2", "rsipas_total")]
+
+round(
+  cor(vars_cor, use = "complete.obs"),
+  3
+)
+
+
+#                raw_F1 raw_F2 rsipas_total
+# raw_F1        1.000  0.725        0.645
+# raw_F2        0.725  1.000        0.734
+# rsipas_total  0.645  0.734        1.000
+0
+
+
+###Calculate Partial Correlations###
+###Unique association removing shared variance with the other factor###
+r_F1_R <- 0.645
+r_F2_R <- 0.734
+r_F1_F2 <- 0.725
+
+# F1 with RSIPAS, controlling F2
+(r_F1_R - r_F1_F2 * r_F2_R) /
+  sqrt((1 - r_F1_F2^2) * (1 - r_F2_R^2))
+
+# [1]  0.2412544
+
+# F2 with RSIPAS, controlling F1
+(r_F2_R - r_F1_F2 * r_F1_R) /
+  sqrt((1 - r_F1_F2^2) * (1 - r_F1_R^2))
+
+#0.506099
+
+#RSIPAS-CA is more closely aligned with the mental-health-care integration dimension 
+#of RSMHQ than with general salience of religion/spirituality after accounting for
+#shared variance.
+
+##############Threshold
+
+# Restrict to clinical participants with complete data
+#Set the old values to NULL
+dat_clin$F2_15plus <- NULL
+
+dat_clin <- dat_score %>%
+  filter(
+    clinical == 1,
+    !is.na(raw_F2),
+    !is.na(theta_F2),
+    !is.na(rsipas_total)
+  ) %>%
+  mutate(
+    F2_15plus = factor(
+      ifelse(raw_F2 >= 15, 1, 0),
+      levels = c(0, 1),
+      labels = c("F2 < 15", "F2 >= 15")
+    )
+  )
+
+table(dat_clin$F2_15plus)
+
+# F2 < 15 F2 >= 15 
+# 260       37      #12.5%
+
+
+
+####Where does it fall in the latent F2 scale:
+dat_clin %>%
+  group_by(raw_F2) %>%
+  summarise(
+    n = n(),
+    mean_theta = mean(theta_F2),
+    sd_theta = sd(theta_F2),
+    median_theta = median(theta_F2),
+    .groups = "drop"
+  ) %>%
+  filter(raw_F2 %in% 14:20)
+# 
+# raw_F2     n mean_theta sd_theta median_theta
+# <dbl> <int>      <dbl>    <dbl>        <dbl>
+#   1     14    11      0.825   0.0542        0.837
+# 2     15    12      0.998   0.0617        0.989
+# 3     16     8      1.14    0.125         1.14 
+# 4     18     4      1.51    0.0492        1.50 
+# 5     19     3      1.73    0.0401        1.71 
+# 6     20    10      2.25    0.156         2.32 
+
+###Note: No 1-to-1 correspondence of raw score and theta
+###Which is why there is mean_theta and median_theta
+
+
+######Now see how the threshold works in RSIPAS
+dat_clin %>%
+  group_by(F2_15plus) %>%
+  summarise(
+    n = n(),
+    mean_RSIPAS = mean(rsipas_total),
+    sd_RSIPAS = sd(rsipas_total),
+    median_RSIPAS = median(rsipas_total),
+    .groups = "drop"
+  )
+# A tibble: 2 × 5
+# F2_15plus     n mean_RSIPAS sd_RSIPAS median_RSIPAS
+# <fct>     <int>       <dbl>     <dbl>         <dbl>
+#   1 F2 < 15     260        28.6      5.67            29
+# 2 F2 >= 15     37        38.3      3.95            38
+#' 
