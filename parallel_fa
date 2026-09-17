@@ -1,40 +1,156 @@
 ****************************************************************************************************
 //Now do parallel analysis in Stata
+//Updated Aug 28, 2026
 *****************************************************************************************************
 ssc install polychoric
+
 use "\\cabinet.usask.ca\work$\llb296\My Documents\Students\Carley\PhD\RS survey\RS_validation_minimal.dta"
+
 //Now calculate polychoric correlations
 polychoric rs1- rs15
 //Save the matrix
-matrix rsMat = r(R)
+matrix rsMat15 = r(R)
+
 //Here's Horn's parallel analysis
-paran, mat(rsMat) all graph centile(95) n(1041) color iter(1000) seed(123)
-
-//Extract 2 factors
-factor rs1-rs15, factors(2) blanks(.4)
-**************************************************************************************************
-*Re-do parallel analysis and EFA after dropping rs8 and rs9
-**************************************************************************************************
-polychoric rs1 rs2 rs3 rs4 rs5 rs6 rs7 rs10 rs11 rs12 rs13 rs14 rs15
-matrix rsMat = r(R)
-
-paran, mat(rsMat) all graph centile(95) n(1041) color iter(1000) seed(123)
-
-factor rs1 rs2 rs3 rs4 rs5 rs6 rs7 rs10 rs11 rs12 rs13 rs14 rs15, factors(2) blanks(.4)
-//clear previous rotation results
-rotate, clear
-//Rotate for easier interpretation
-rotate, oblique oblimin blanks(.4)
-//Inspect the factor correlation matrix
-mat fc =  e(r_Phi) 
-mat list fc
+paran, mat(rsMat15) all graph centile(95) n(1041) color iter(1000) seed(123)
 
 /*
-symmetric fc[2,2]
-           Factor1    Factor2
-Factor1          1
-Factor2  .70812953          1
+
+Results of Horn's Parallel Analysis for principal components
+1000 iterations, using the p95 estimate
+
+--------------------------------------------------
+Component   Adjusted    Unadjusted    Estimated
+or Factor   Eigenvalue  Eigenvalue    Bias
+--------------------------------------------------
+ 1          9.7485787   9.9975046     .24892591
+ 2          1.4617578   1.6554015     .1936437
+ 3          .95486792   1.1073141     .15244616
+ 4          .36647765   .48858351     .12210585
+ 5          .22181812   .313115       .09129688
+ 6          .18447222   .25075845     .06628623
+ 7          .16186395   .20187352     .04000957
+ 8          .17419105   .18896606     .01477501
+ 9          .16956935   .16107246     -.00849689
+ 10         .18634616   .15423773     -.03210843
+ 11         .17967888   .12493438     -.0547445
+ 12         .19799563   .12065199     -.07734364
+ 13         .19401147   .09206613     -.10194534
+ 14         .21342072   .08301191     -.13040881
+ 15         .22079211   .06050869     -.16028343
+--------------------------------------------------
+Criterion: retain adjusted components > 1
+
 */
 
-//Now calculate the internal consistency
-alpha rs1 
+//Extract 2 factors using the saved polychoric correlation matrix
+//called rsMat15
+factormat rsMat15, n(1041) factors(2)
+rotate, oblique oblimin
+estat common
+
+/*
+Factor analysis/correlation                      Number of obs    =      1,041
+    Method: principal factors                    Retained factors =          2
+    Rotation: (unrotated)                        Number of params =         29
+
+    --------------------------------------------------------------------------
+         Factor  |   Eigenvalue   Difference        Proportion   Cumulative
+    -------------+------------------------------------------------------------
+        Factor1  |      9.81582      8.41721            0.8272       0.8272
+        Factor2  |      1.39861      0.61751            0.1179       0.9451
+        Factor3  |      0.78111      0.55468            0.0658       1.0109
+        Factor4  |      0.22642      0.17873            0.0191       1.0300
+        Factor5  |      0.04770      0.01958            0.0040       1.0340
+        Factor6  |      0.02812      0.00974            0.0024       1.0364
+        Factor7  |      0.01838      0.01285            0.0015       1.0379
+        Factor8  |      0.00553      0.01921            0.0005       1.0384
+        Factor9  |     -0.01368      0.01114           -0.0012       1.0373
+       Factor10  |     -0.02482      0.00675           -0.0021       1.0352
+       Factor11  |     -0.03157      0.01337           -0.0027       1.0325
+       Factor12  |     -0.04494      0.03546           -0.0038       1.0287
+       Factor13  |     -0.08040      0.01927           -0.0068       1.0219
+       Factor14  |     -0.09968      0.06100           -0.0084       1.0135
+       Factor15  |     -0.16068            .           -0.0135       1.0000
+    --------------------------------------------------------------------------
+    LR test: independent vs. saturated: chi2(105) = 2.0e+04 Prob>chi2 = 0.0000
+
+Factor loadings (pattern matrix) and unique variances
+
+    -------------------------------------------------
+        Variable |  Factor1   Factor2 |   Uniqueness 
+    -------------+--------------------+--------------
+             rs1 |   0.8908   -0.2948 |      0.1195  
+             rs2 |   0.8958   -0.2906 |      0.1132  
+             rs3 |   0.9169   -0.2397 |      0.1019  
+             rs4 |   0.9050   -0.2609 |      0.1129  
+             rs5 |   0.9103   -0.3025 |      0.0798  
+             rs6 |   0.8975   -0.2126 |      0.1493  
+             rs7 |   0.8828   -0.2123 |      0.1756  
+             rs8 |   0.5481    0.3137 |      0.6012  
+             rs9 |   0.3676    0.5520 |      0.5602  
+            rs10 |   0.7300    0.3983 |      0.3084  
+            rs11 |   0.7212    0.3045 |      0.3872  
+            rs12 |   0.7994    0.3390 |      0.2460  
+            rs13 |   0.7791    0.3472 |      0.2725  
+            rs14 |   0.8576    0.1164 |      0.2510  
+            rs15 |   0.8226    0.1286 |      0.3068  
+    -------------------------------------------------
+
+. rotate, oblique oblimin
+
+Factor analysis/correlation                      Number of obs    =      1,041
+    Method: principal factors                    Retained factors =          2
+    Rotation: oblique oblimin (Kaiser off)       Number of params =         29
+
+    --------------------------------------------------------------------------
+         Factor  |     Variance   Proportion    Rotated factors are correlated
+    -------------+------------------------------------------------------------
+        Factor1  |      9.09828       0.7668
+        Factor2  |      7.27815       0.6134
+    --------------------------------------------------------------------------
+    LR test: independent vs. saturated: chi2(105) = 2.0e+04 Prob>chi2 = 0.0000
+
+Rotated factor loadings (pattern matrix) and unique variances
+
+    -------------------------------------------------
+        Variable |  Factor1   Factor2 |   Uniqueness 
+    -------------+--------------------+--------------
+             rs1 |   0.9562   -0.0284 |      0.1195  
+             rs2 |   0.9552   -0.0213 |      0.1132  
+             rs3 |   0.9150    0.0500 |      0.1019  
+             rs4 |   0.9295    0.0192 |      0.1129  
+             rs5 |   0.9786   -0.0306 |      0.0798  
+             rs6 |   0.8717    0.0763 |      0.1493  
+             rs7 |   0.8609    0.0711 |      0.1756  
+             rs8 |   0.0504    0.5981 |      0.6012  
+             rs9 |  -0.3374    0.8259 |      0.5602  
+            rs10 |   0.0883    0.7724 |      0.3084  
+            rs11 |   0.1839    0.6524 |      0.3872  
+            rs12 |   0.2023    0.7250 |      0.2460  
+            rs13 |   0.1789    0.7274 |      0.2725  
+            rs14 |   0.4857    0.4703 |      0.2510  
+            rs15 |   0.4474    0.4722 |      0.3068  
+    -------------------------------------------------
+
+Factor rotation matrix
+
+    --------------------------------
+                 | Factor1  Factor2 
+    -------------+------------------
+         Factor1 |  0.9564   0.8358 
+         Factor2 | -0.2920   0.5491 
+    --------------------------------
+
+. estat common
+
+Correlation matrix of the oblimin(0) rotated common factors
+
+    ----------------------------------
+         Factors |  Factor1   Factor2 
+    -------------+--------------------
+         Factor1 |        1           
+         Factor2 |     .639         1 
+    ----------------------------------
+*/
+
