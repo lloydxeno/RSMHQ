@@ -1,0 +1,1273 @@
+setwd("~/Students/Carley/PhD/RS survey/Re-anlaysis")
+library(haven)
+RS_validation_minimal <- read_dta("RS_validation_minimal.dta")
+
+library(mirt)
+library(dplyr)
+
+#Now restrict the variables to the RSMHQ scale
+
+#Take note that RS_items15 and RS_validation
+#can be linked as long as no rearrangement of records occurs!
+RS_items15 <- RS_validation_minimal %>%
+  select(rs1:rs15)
+
+lapply(RS_items15, function(x) {
+  sort(unique(x))
+})
+
+#Now recode 1 to 5 coding to 0 to 4
+RS_items15 <- RS_items15 %>%
+  mutate(across(everything(), ~ .x - 1))
+
+lapply(RS_items15, table, useNA = "ifany")
+
+
+##Now fit a simple 2 factor MIRT model
+model_simple <- "
+F1 = 1-7
+F2 = 8-15
+COV = F1*F2
+"
+###################################Fit the same model using different estimators##################################
+###################################This tests if the same optimal solution is reached across methods###############
+###################################The solution reached should be identical log-likelihoods, slopes, thresholds####3
+
+
+#Use Expectation-Maximization algorithm
+fit_simple_em <- mirt(
+  data     = RS_items15,
+  model    = model_simple,
+  itemtype = "graded",
+  method   = "EM",
+  quadpts  = 31,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-4,
+  technical = list(NCYCLES = 3000)
+)
+
+fit_simple_em
+extract.mirt(fit_simple_em, "converged")
+
+# 
+# Full-information item factor analysis with 2 factor(s).
+# Converged within 1e-04 tolerance after 69 EM iterations.
+# mirt version: 1.45.1 
+# M-step optimizer: BFGS 
+# EM acceleration: Ramsay 
+# Number of rectangular quadrature: 31
+# Latent density type: Gaussian 
+# 
+# Information matrix estimated with method: Oakes
+# Second-order test: model is a possible local maximum
+# Condition number of information matrix =  2760.768
+# 
+# Log-likelihood = -16164.81
+
+
+####Fit using MHRM
+fit_simple_mhrm <- mirt(
+  data     = RS_items15,
+  model    = model_simple,
+  itemtype = "graded",
+  method   = "MHRM",
+  SE       = TRUE,
+  technical = list(NCYCLES = 2000)
+)
+
+
+fit_simple_mhrm
+extract.mirt(fit_simple_mhrm, "converged")
+
+# 
+# Full-information item factor analysis with 2 factor(s).
+# Converged within 0.001 tolerance after 147 MHRM iterations.
+# mirt version: 1.45.1 
+# M-step optimizer: NR1 
+# Latent density type: Gaussian 
+# Average MH acceptance ratio(s): 0.392 
+# 
+# Information matrix estimated with method: MHRM
+# Second-order test: model is not a maximum or the information matrix is too inaccurate
+# 
+# Log-likelihood = -16172.92, SE = 0.09
+# Estimated parameters: 76 
+# AIC = 32497.83
+# BIC = 32873.87; SABIC = 32632.49
+
+
+#################Quasi-Monte Carlo EM####
+fit_simple_qmc <- mirt(
+  data     = RS_items15,
+  model    = model_simple,
+  itemtype = "graded",
+  method   = "QMCEM",
+  SE       = TRUE,
+  TOL      = 1e-4,
+  technical = list(NCYCLES = 3000)
+)
+
+fit_simple_qmc
+extract.mirt(fit_simple_qmc, "converged")
+
+# 
+# Full-information item factor analysis with 2 factor(s).
+# Converged within 1e-04 tolerance after 63 QMCEM iterations.
+# mirt version: 1.45.1 
+# M-step optimizer: BFGS 
+# EM acceleration: Ramsay 
+# Number of quasi-Monte Carlo points: 5000
+# Latent density type: Gaussian 
+# 
+# Information matrix estimated with method: Oakes
+# Second-order test: model is a possible local maximum
+# Condition number of information matrix =  5652.064
+# 
+# Log-likelihood = -16160.4
+# Estimated parameters: 76 
+# AIC = 32472.8
+# BIC = 32848.84; SABIC = 32607.45
+# G2 (1e+10) = 19011.99, p = 1
+# RMSEA = 0, CFI = NaN, TLI = NaN
+
+
+
+#####Compare the estimation methods
+logLik(fit_simple_mhrm)
+logLik(fit_simple_em)
+logLik(fit_simple_qmc)
+
+####################
+#Refit using the QMCEM solution 
+#increase quadrature points
+qmc_start <- mod2values(fit_simple_qmc)
+
+fit_simple_em_refined <- mirt(
+  data     = RS_items15,
+  model    = model_simple,
+  itemtype = "graded",
+  method   = "EM",
+  pars     = qmc_start,
+  quadpts  = 41,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 5000)
+)
+
+fit_simple_em_refined
+extract.mirt(fit_simple_em_refined, "converged")
+logLik(fit_simple_em_refined)
+# 
+# 
+# Log-likelihood = -16161.51
+# Estimated parameters: 76 
+# AIC = 32475.02
+# BIC = 32851.06; SABIC = 32609.67
+# G2 (1e+10) = 19014.21, p = 1
+# RMSEA = 0, CFI = NaN, TLI = NaN
+# > extract.mirt(fit_simple_em_refined, "converged")
+# [1] TRUE
+# > logLik(fit_simple_em_refined)
+# [1] -16161.51
+
+### EM with 61 quadrature points#########
+fit_simple_em_61 <- mirt(
+  data     = RS_items15,
+  model    = model_simple,
+  itemtype = "graded",
+  method   = "EM",
+  pars     = mod2values(fit_simple_em_refined),
+  quadpts  = 61,
+  SE       = FALSE,
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 20000)
+)
+
+fit_simple_em_61
+logLik(fit_simple_em_refined)
+logLik(fit_simple_em_61)
+
+# #
+# fit_simple_em_61
+# 
+# Call:
+#   mirt(data = RS_items15, model = model_simple, itemtype = "graded", 
+#        SE = FALSE, method = "EM", pars = mod2values(fit_simple_em_refined), 
+#        quadpts = 61, TOL = 1e-05, technical = list(NCYCLES = 5000))
+# 
+# Full-information item factor analysis with 2 factor(s).
+# FAILED TO CONVERGE within 1e-05 tolerance after 5000 EM iterations.
+# mirt version: 1.45.1 
+# M-step optimizer: BFGS 
+# EM acceleration: Ramsay 
+# Number of rectangular quadrature: 61
+# Latent density type: Gaussian 
+# 
+# Log-likelihood = -16160.45
+# Estimated parameters: 76 
+# AIC = 32472.89
+# BIC = 32848.94; SABIC = 32607.55
+# G2 (1e+10) = 19012.09, p = 1
+# RMSEA = 0, CFI = NaN, TLI = NaN
+# > logLik(fit_simple_em_refined)
+# [1] -16161.51
+# > logLik(fit_simple_em_61)
+# [1] -16160.45
+
+####Inspect the results
+coef_41 <- coef(
+  fit_simple_em_refined,
+  IRTpars = TRUE,
+  simplify = TRUE
+)
+
+coef_61 <- coef(
+  fit_simple_em_61,
+  IRTpars = TRUE,
+  simplify = TRUE
+)
+
+##############Conclusion: discrimination parameters of items in Factor 1 are very strong
+##############Factor 2 slopes are strong except for RS9 which is moderate########
+##############Action: Omit RS9 because of highly specific content
+#############extreme thresholds, different response behavior, 
+#############weak contribution to the broader factor, and contribution to estimation instability.
+RS_items14 <- RS_items15 %>%
+  select(-rs9)
+
+names(RS_items14)
+ncol(RS_items14)
+
+####RS9 omitted from model###
+model_simple14 <- "
+F1 = 1-7
+F2 = 8-14
+COV = F1*F2
+"
+fit_simple14 <- mirt(
+  data     = RS_items14,
+  model    = model_simple14,
+  itemtype = "graded",
+  method   = "EM",
+  quadpts  = 41,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 5000)
+)
+
+fit_simple14
+logLik(fit_simple14)
+
+####Try and have RS14 and RS15 crossload on both factors####
+model_cross14_15 <- "
+F1 = 1-7, 13-14
+F2 = 8-14
+COV = F1*F2
+"
+
+fit_cross14_15 <- mirt(
+  data     = RS_items14,
+  model    = model_cross14_15,
+  itemtype = "graded",
+  method   = "EM",
+  quadpts  = 41,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 5000)
+)
+
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+#Compare simple with crossloading models
+anova(fit_simple14, fit_cross14_15)
+
+extract.mirt(fit_simple14, "AIC")
+extract.mirt(fit_simple14, "BIC")
+
+extract.mirt(fit_cross14_15, "AIC")
+extract.mirt(fit_cross14_15, "BIC")
+
+M2(fit_simple14, type = "C2")
+M2(fit_cross14_15, type = "C2")
+
+# > M2(fit_simple14, type = "C2")
+# M2 df p     RMSEA    RMSEA_5   RMSEA_95     SRMSR       TLI      CFI
+# stats 687.9564 76 0 0.0879907 0.08198605 0.09403533 0.0529153 0.9806063 0.983803
+# > M2(fit_cross14_15, type = "C2")
+# M2 df p      RMSEA    RMSEA_5   RMSEA_95      SRMSR       TLI       CFI
+# stats 484.4565 74 0 0.07302995 0.06688151 0.07925134 0.03997004 0.9866405 0.9891362
+
+
+#######Item-level fit analysis####
+item_fit <- itemfit(
+  fit_cross14_15,
+  fit_stats = "S_X2"
+)
+
+item_fit
+
+####The crossloadings are consistent with EFA result
+# The cross-loaded two-factor GRM demonstrated acceptable approximate fit, 
+# Although the exact-fit test was significant, 
+# the approximate fit indices supported the adequacy of the model.
+
+
+
+
+
+#Inspect their estimated slopes
+cross_parameters <- coef(
+  fit_cross14_15,
+  IRTpars = TRUE,
+  simplify = TRUE
+)$items
+
+
+
+cross_parameters[c("rs14", "rs15"), c("a1", "a2")]
+# a1       a2
+# rs14 1.290925 2.656314
+# rs15 1.175250 2.100893
+
+
+
+#Examine if allowing the cross-loadings changes the factor correlation:
+coef(fit_simple14, simplify = TRUE)$cov
+coef(fit_cross14_15, simplify = TRUE)$cov
+
+
+
+########Verify that Raw Scores Correlate most strongly with F1 for items 1 to 7
+#########and 8 to 15 (except RS9) to F2
+# Original 1–5 responses
+RS_original14 <- RS_validation_minimal |>
+  dplyr::select(rs1:rs8, rs10:rs15)
+
+RS_original14$F1_raw <- rowSums(
+  RS_original14[paste0("rs", 1:7)],
+  na.rm = FALSE
+)
+
+RS_original14$F2_raw <- rowSums(
+  RS_original14[c(
+    "rs8", "rs10", "rs11", "rs12",
+    "rs13", "rs14", "rs15"
+  )],
+  na.rm = FALSE
+)
+
+irt_scores <- fscores(
+  fit_cross14_15,
+  method = "EAP",
+  full.scores = TRUE
+)
+
+cor(
+  cbind(
+    F1_raw = RS_original14$F1_raw,
+    F2_raw = RS_original14$F2_raw,
+    irt_scores
+  ),
+  use = "pairwise.complete.obs"
+)
+#Raw score to Factor score correlations
+# F1_raw    F2_raw        F1        F2
+# F1_raw 1.0000000 0.7284351 0.9773936 0.7216613
+# F2_raw 0.7284351 1.0000000 0.7529341 0.9711059
+# F1     0.9773936 0.7529341 1.0000000 0.7754423
+# F2     0.7216613 0.9711059 0.7754423 1.0000000
+
+########Item-level Fit Assessment#######
+########Correct for multiple comparisons###
+item_fit$p_BH <- p.adjust(
+  item_fit$p.S_X2,
+  method = "BH"
+)
+
+item_fit[
+  order(item_fit$p_BH),
+  c("item", "S_X2", "df.S_X2",
+    "RMSEA.S_X2", "p.S_X2", "p_BH")
+]
+
+####All RMSEA chi-square are below .05
+####so the misfit is minimal.
+# item    S_X2 df.S_X2 RMSEA.S_X2 p.S_X2  p_BH
+# 8   rs8 331.615     155      0.033  0.000 0.000
+# 10 rs11 202.308     130      0.023  0.000 0.000
+# 5   rs5 120.315      86      0.020  0.009 0.040
+# 1   rs1 114.772      88      0.017  0.029 0.082
+# 14 rs15 144.187     114      0.016  0.029 0.082
+# 13 rs14 123.977      99      0.016  0.045 0.106
+# 2   rs2 104.819      85      0.015  0.071 0.125
+# 6   rs6 118.133      97      0.014  0.071 0.125
+# 7   rs7 120.941     101      0.014  0.086 0.134
+# 11 rs12 133.849     114      0.013  0.099 0.138
+# 4   rs4  99.891      87      0.012  0.163 0.207
+# 12 rs13 134.904     121      0.011  0.183 0.213
+# 9  rs10 145.090     132      0.010  0.206 0.222
+# 3   rs3  93.634      85      0.010  0.245 0.245
+#######################Test for Local Dependence###########
+
+#Obtain Q3 for the crosslagged
+Q3_cross <- residuals(
+  fit_cross14_15,
+  type = "Q3"
+)
+
+
+round(Q3_cross, 3)
+# rs1    rs2    rs3    rs4    rs5    rs6    rs7    rs8   rs10   rs11   rs12   rs13   rs14   rs15
+# rs1   1.000  0.009 -0.159 -0.206 -0.156 -0.196 -0.139 -0.069  0.004  0.014 -0.010 -0.052  0.025  0.022
+# rs2   0.009  1.000 -0.141 -0.211 -0.203 -0.185 -0.074  0.019 -0.022  0.083  0.035  0.024 -0.114 -0.074
+# rs3  -0.159 -0.141  1.000 -0.136 -0.311 -0.054 -0.182  0.108  0.038  0.005  0.008 -0.009 -0.064 -0.034
+# rs4  -0.206 -0.211 -0.136  1.000 -0.014 -0.240 -0.156  0.023  0.049 -0.030 -0.005  0.048 -0.079 -0.039
+# rs5  -0.156 -0.203 -0.311 -0.014  1.000 -0.190 -0.205 -0.105 -0.033  0.039  0.029 -0.024  0.011 -0.089
+# rs6  -0.196 -0.185 -0.054 -0.240 -0.190  1.000  0.019  0.118  0.068 -0.113  0.011  0.015 -0.012 -0.037
+# rs7  -0.139 -0.074 -0.182 -0.156 -0.205  0.019  1.000  0.064 -0.017  0.024  0.028  0.008 -0.073  0.035
+# rs8  -0.069  0.019  0.108  0.023 -0.105  0.118  0.064  1.000  0.072 -0.166 -0.019 -0.101 -0.186  0.021
+# rs10  0.004 -0.022  0.038  0.049 -0.033  0.068 -0.017  0.072  1.000  0.226 -0.228 -0.284 -0.210 -0.222
+# rs11  0.014  0.083  0.005 -0.030  0.039 -0.113  0.024 -0.166  0.226  1.000 -0.225 -0.224 -0.151 -0.268
+# rs12 -0.010  0.035  0.008 -0.005  0.029  0.011  0.028 -0.019 -0.228 -0.225  1.000 -0.236 -0.286 -0.114
+# rs13 -0.052  0.024 -0.009  0.048 -0.024  0.015  0.008 -0.101 -0.284 -0.224 -0.236  1.000 -0.116 -0.145
+# rs14  0.025 -0.114 -0.064 -0.079  0.011 -0.012 -0.073 -0.186 -0.210 -0.151 -0.286 -0.116  1.000  0.151
+# rs15  0.022 -0.074 -0.034 -0.039 -0.089 -0.037  0.035  0.021 -0.222 -0.268 -0.114 -0.145  0.151  1.000
+
+
+#####Get residuals of simple model
+Q3_simple <-residuals(
+  fit_simple14,
+  type = "Q3",
+)
+
+round(Q3_simple, 3)
+
+####extract items
+get_aQ3 <- function(Q3) {
+  
+  idx <- which(lower.tri(Q3), arr.ind = TRUE)
+  q3 <- Q3[idx]
+  
+  mean_q3 <- mean(q3, na.rm = TRUE)
+  
+  data.frame(
+    item1 = rownames(Q3)[idx[, "row"]],
+    item2 = colnames(Q3)[idx[, "col"]],
+    Q3 = q3,
+    aQ3 = q3 - mean_q3
+  )
+}
+
+
+simple_pairs <- get_aQ3(Q3_simple)
+cross_pairs  <- get_aQ3(Q3_cross)
+
+subset(simple_pairs,
+       (item1 == "rs11" & item2 == "rs10") |
+         (item1 == "rs15" & item2 == "rs14"))
+
+subset(cross_pairs,
+       (item1 == "rs11" & item2 == "rs10") |
+         (item1 == "rs15" & item2 == "rs14"))
+
+##################Action: Refit 13-items resulting from omitting RS9 and RS10
+
+RS_items13 <- RS_items15 %>%
+  select(-rs9, -rs10)
+
+
+####RS9 and RS10 omitted from model###
+model_simple13 <- "
+F1 = 1-7
+F2 = 8-13
+COV = F1*F2
+"
+fit_simple13 <- mirt(
+  data     = RS_items13,
+  model    = model_simple13,
+  itemtype = "graded",
+  method   = "EM",
+  quadpts  = 41,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 5000)
+)
+
+fit_simple13
+logLik(fit_simple13)
+
+
+M2(fit_simple13, type = "C2")
+
+#######Item-level fit analysis####
+item_fit <- itemfit(
+  fit_simple13,
+  fit_stats = "S_X2"
+)
+
+item_fit$p_BH <- p.adjust(
+  item_fit$p.S_X2,
+  method = "BH"
+)
+
+item_fit[
+  order(item_fit$p_BH),
+  c("item", "S_X2", "df.S_X2",
+    "RMSEA.S_X2", "p.S_X2", "p_BH")
+]
+
+# item    S_X2 df.S_X2 RMSEA.S_X2 p.S_X2  p_BH
+# 8   rs8 343.139     145      0.036  0.000 0.000
+# 9  rs11 182.384     126      0.021  0.001 0.005
+# 11 rs13 160.042     111      0.021  0.002 0.007
+# 12 rs14 147.169     108      0.019  0.007 0.023
+# 13 rs15 151.676     113      0.018  0.009 0.023
+# 5   rs5 104.163      76      0.019  0.018 0.033
+# 10 rs12 133.335     101      0.018  0.017 0.033
+# 1   rs1  97.259      79      0.015  0.080 0.130
+# 6   rs6 104.759      87      0.014  0.094 0.136
+# 4   rs4  96.154      81      0.013  0.120 0.156
+# 2   rs2  84.524      79      0.008  0.315 0.372
+# 7   rs7  92.740      90      0.005  0.401 0.434
+# 3   rs3  75.838      77      0.000  0.516 0.516
+
+############Get residuals of fit13#######
+Q3_13 <- residuals(fit_simple13, type = "Q3")
+
+simple13_pairs <- get_aQ3(Q3_13)
+
+# Largest positive adjusted Q3 values
+# simple13_pairs[order(-simple13_pairs$aQ3), ][1:10, ]
+# Largest positive adjusted Q3 values
+# > simple13_pairs[order(-simple13_pairs$aQ3), ][1:10, ]
+# item1 item2         Q3        aQ3
+# 52   rs8   rs6 0.11497342 0.18649821
+# 28   rs8   rs3 0.10368875 0.17521354
+# 49  rs14   rs5 0.07407414 0.14559893
+# 58   rs8   rs7 0.06168468 0.13320947
+# 11  rs14   rs1 0.06013949 0.13166428
+# 19  rs11   rs2 0.05535492 0.12687971
+# 12  rs15   rs1 0.05481344 0.12633823
+# 63  rs15   rs7 0.04461396 0.11613875
+# 40  rs13   rs4 0.02638888 0.09791367
+# 59  rs11   rs7 0.02567037 0.09719516
+
+#####Display item parameters
+
+# coef(fit_simple13, IRTpars = TRUE, simplify = TRUE)$items
+# a1       a2         b1           b2        b3       b4
+# rs1  5.085775 0.000000 -0.7020841 -0.108895317 0.4819295 1.033151
+# rs2  5.574851 0.000000 -0.6250714 -0.090812139 0.5072398 1.120043
+# rs3  6.250267 0.000000 -0.5682264 -0.074107963 0.5037554 1.123165
+# rs4  6.059414 0.000000 -0.5069884 -0.004291247 0.4815677 1.091624
+# rs5  6.776231 0.000000 -0.6078213 -0.099045899 0.4022221 1.016518
+# rs6  4.864403 0.000000 -0.5144784  0.041887156 0.6206913 1.248760
+# rs7  4.155431 0.000000 -0.4987268  0.009150739 0.5636438 1.281530
+# rs8  0.000000 1.053093 -0.1251116  0.839126747 1.8996766 3.338145
+# rs11 0.000000 2.221015 -1.0009601 -0.318847815 0.5102926 1.458313
+# rs12 0.000000 3.703093 -0.3394461  0.230422647 0.8566856 1.614838
+# rs13 0.000000 3.615805 -0.4608072  0.065307301 0.7011195 1.465237
+# rs14 0.000000 4.041091 -0.4986173 -0.002728022 0.6038239 1.323012
+# rs15 0.000000 3.303103 -0.1833679  0.209289063 0.8209793 1.550129
+
+#plot ICC factor 1 curves
+# Theta grid: vary Factor 1, hold Factor 2 at 0
+theta1 <- seq(-1.5, 1.5, length.out = 500)
+
+Theta1 <- cbind(
+  theta1,
+  rep(0, length(theta1))
+)
+
+# Expected item scores at each theta value
+exp_scores <- sapply(
+  1:ncol(RS_items13),
+  function(i) {
+    item <- extract.item(fit_simple13, i)
+    expected.item(item, Theta1)
+  }
+)
+
+colnames(exp_scores) <- colnames(RS_items13)
+
+F1_items <- c("rs1", "rs2", "rs3", "rs4",
+              "rs5", "rs6", "rs7")
+cols <- seq_along(F1_items)
+
+matplot(
+  theta1,
+  exp_scores[, F1_items] + 1,
+  type = "l",
+  lty = 1,
+  lwd = 2,
+  col = cols,
+  xlab = expression(theta[1]),
+  ylab = "Expected item score",
+  ylim = c(1, 5),
+  yaxt = "n"
+)
+
+axis(
+  side = 2,
+  at = 1:5,
+  labels = 1:5
+)
+
+legend(
+  "topleft",
+  legend = F1_items,
+  col = cols,
+  lty = 1,
+  lwd = 2,
+  cex = 0.8
+)
+
+
+
+################################Invariance testing of 13 retained items###########
+#################################Part 1: Slope####################################
+# Add sex variable
+RS_items13$male <- RS_validation_minimal$male
+
+table(RS_items13$male, useNA = "ifany")
+# 0   1 
+# 638 403 
+RS_items13$sex <- factor(
+  RS_items13$male,
+  levels = c(0, 1),
+  labels = c("Female", "Male")
+)
+
+table(RS_items13$sex)
+
+#Separate dataframe of 13 items
+items13 <- RS_items13[, c(
+  "rs1", "rs2", "rs3", "rs4", "rs5", "rs6", "rs7",
+  "rs8", "rs11", "rs12", "rs13", "rs14", "rs15"
+)]
+
+library(mirt)
+
+# Configural model: allow slopes and intercepts to vary
+# Keep both factor means at 0 and variances at 1 in both groups:
+mg_config <- multipleGroup(
+  items13,
+  model_simple13,
+  group = RS_items13$sex,
+  itemtype = "graded"
+)
+
+#Fix the slopes equal between sexes
+mg_slopes <- multipleGroup(
+  items13,
+  model_simple13,
+  group = RS_items13$sex,
+  itemtype = "graded",
+  invariance = c("slopes")
+)
+
+#Put the more constrained model first
+
+# anova(mg_slopes, mg_config)
+# AIC    SABIC       HQ      BIC    logLik     X2 df     p
+# mg_slopes 28416.67 28627.51 28640.02 29005.47 -14089.33                
+# mg_config 28407.92 28641.80 28655.67 29061.05 -14071.96 34.743 13 0.001
+
+#Identify which items have differing slopes
+mg_slopes_DIF <- multipleGroup(
+  items13,
+  model_simple13,
+  group = RS_items13$sex,
+  itemtype = "graded",
+  invariance = c("slopes", "free_var")
+)
+
+#Test the Factor 1 slopes
+DIF_F1_slopes <- DIF(
+  mg_slopes_DIF,
+  which.par = "a1",
+  items2test = 1:7,
+  scheme = "drop",
+  p.adjust = "BH"
+)
+DIF_F1_slopes
+# groups converged    AIC  SABIC     HQ    BIC     X2 df     p adj_p
+# rs1 Female,Male      TRUE  0.404  2.176  2.281  5.352  1.596  1 0.206 0.723
+# rs2 Female,Male      TRUE  1.623  3.395  3.500  6.571  0.377  1 0.539 0.755
+# rs3 Female,Male      TRUE  1.103  2.875  2.980  6.051  0.897  1 0.344 0.755
+# rs4 Female,Male      TRUE -8.692 -6.920 -6.815 -3.744 10.692  1 0.001 0.008
+# rs5 Female,Male      TRUE  1.959  3.731  3.836  6.907  0.041  1 0.839 0.839
+# rs6 Female,Male      TRUE  1.394  3.166  3.271  6.342  0.606  1 0.436 0.755
+# rs7 Female,Male      TRUE  1.915  3.686  3.792  6.863  0.085  1  0.77 0.839
+
+
+cf <- coef(mg_config, IRTpars = TRUE, simplify = TRUE)
+
+# 
+cf$Female$items["rs4", ]
+# a1         a2         b1         b2         b3         b4 
+# 6.9105606  0.0000000 -0.6199786 -0.1311175  0.3973947  0.9639407 
+cf$Male$items["rs4", ]
+# a1         a2         b1         b2         b3         b4 
+# 4.5688450  0.0000000 -0.6473073 -0.1084379  0.3749302  1.1704861 
+# Item rs4 exhibited differential discrimination by sex, 
+# with a higher discrimination parameter among females (\(a=6.91\)) 
+# than males (\(a=4.57\)), although discrimination was high in both groups.
+
+#Test Factor 2 slopes
+#Test the Factor 1 slopes
+DIF_F2_slopes <- DIF(
+  mg_slopes_DIF,
+  which.par = "a2",
+  items2test = 8:13,
+  scheme = "drop",
+  p.adjust = "BH"
+)
+
+DIF_F2_slopes
+
+cf$Female$items["rs8", ]
+cf$Male$items["rs8", ]
+# > cf$Female$items["rs8", ]
+# a1         a2         b1         b2         b3         b4 
+# 0.0000000  0.8181035 -0.1800750  1.0437603  2.5996414  4.7515907 
+# > cf$Male$items["rs8", ]
+# a1         a2         b1         b2         b3         b4 
+# 0.0000000  1.3896999 -0.2190879  0.5416081  1.2220326  2.2412189 
+
+#Is large b4 in females driven by few female high responders?
+prop.table(
+  table(RS_items13$sex, items13$rs8),
+  margin = 1
+)
+
+################Action: Free the slopes to differ by sex for rs4 and rs8
+model_partial_slopes_sex <- "
+F1 = 1-7
+F2 = 8-13
+COV = F1*F2
+
+# F1 slopes equal across sex except rs4
+CONSTRAINB = (1-3, 5-7, a1),
+
+# F2 slopes equal across sex except rs8
+             (9-13, a2)
+"
+
+
+mg_partial_slopes_sex <- multipleGroup(
+  items13,
+  model_partial_slopes_sex,
+  group = RS_items13$sex,
+  itemtype = "graded"
+)
+
+#Inspect item parameters
+cf_partial_sex <- coef(
+  mg_partial_slopes_sex,
+  IRTpars = TRUE,
+  simplify = TRUE
+)
+
+cf_partial_sex$Female$items
+cf_partial_sex$Male$items
+
+#Here are the differing slopes for RS4
+cf_partial_sex$Female$items["rs4", "a1"]
+cf_partial_sex$Male$items["rs4", "a1"]
+
+#Here are the differing slopes for RS8
+cf_partial_sex$Female$items["rs8", "a2"]
+cf_partial_sex$Male$items["rs8", "a2"]
+
+###Do an ANOVA for differences in fit
+anova(mg_slopes, mg_partial_slopes_sex)
+
+# > anova(mg_slopes, mg_partial_slopes_sex)
+# AIC    SABIC       HQ      BIC    logLik     X2 df p
+# mg_slopes             28416.67 28627.51 28640.02 29005.47 -14089.33            
+# mg_partial_slopes_sex 28402.31 28625.56 28638.80 29025.75 -14075.16 28.358  7 0
+
+################################Invariance testing of 13 retained items###########
+#################################Part 2: Thresholds####################################
+#Define the model
+
+model_partial_slopes_thresholds_sex <- "
+F1 = 1-7
+F2 = 8-13
+COV = F1*F2
+
+# Slopes equal except rs4 and rs8
+CONSTRAINB = (1-3, 5-7, a1),
+             (9-13, a2),
+
+"
+
+#Fit the model with fixed thresholds
+
+mg_partial_thresholds_sex <- multipleGroup(
+  items13,
+  model_partial_slopes_sex,
+  group = RS_items13$sex,
+  itemtype = "graded",
+  invariance = "intercepts"
+)
+
+
+#Check if parameter constraints were enforced
+pars_check <- mod2values(mg_partial_thresholds_sex)
+
+pars_check[
+  pars_check$name %in% c("d1", "d2", "d3", "d4"),
+  c("group", "item", "name", "value", "est", "const")
+]
+
+
+
+#Compare fit with the mg_partial_slopes_sex, i.e. the thresholds are free to vary
+anova(mg_partial_thresholds_sex, mg_partial_slopes_sex)
+# 
+# 
+# AIC    SABIC       HQ      BIC    logLik    X2 df p
+# mg_partial_thresholds_sex 28391.24 28522.35 28530.13 28757.39 -14121.62           
+# mg_partial_slopes_sex     28402.31 28625.56 28638.80 29025.75 -14075.16 92.93 52 0
+
+#Conclusion: Freeing all thresholds is not supported because of lower AIC /BIC in the constrain all
+#thresholds model. So free some thresholds to see if partial invariance is supported.
+###Do something like the DIF test for slopes
+
+#Verify the df is correct
+extract.mirt(mg_partial_slopes_sex, "nest")
+extract.mirt(mg_partial_thresholds_sex, "nest")
+
+#################################Now do a DIF test of the thresholds that ought to be freed
+#################################Analogous to DIF slope test
+DIF_F1_thresholds <- DIF(
+  mg_partial_thresholds_sex,
+  which.par = c("d1", "d2", "d3", "d4"),
+  items2test = 1:7,
+  scheme = "drop",
+  p.adjust = "BH"
+)
+
+DIF_F1_thresholds
+
+# #Result: RS4 has DIF between male/female
+# groups converged     AIC  SABIC     HQ    BIC     X2 df     p adj_p
+# rs1 Female,Male      TRUE  -1.750  5.337  5.758 18.042   9.75  4 0.045 0.105
+# rs2 Female,Male      TRUE   4.628 11.716 12.136 24.420  3.372  4 0.498 0.581
+# rs3 Female,Male      TRUE  -0.503  6.584  7.004 19.289  8.503  4 0.075 0.131
+# rs4 Female,Male      TRUE -11.187 -4.100 -3.679  8.605 19.187  4 0.001 0.005
+# rs5 Female,Male      TRUE   3.502 10.589 11.010 23.294  4.498  4 0.343 0.480
+# rs6 Female,Male      TRUE  -2.322  4.766  5.186 17.470 10.322  4 0.035 0.105
+# rs7 Female,Male      TRUE   5.945 13.032 13.453 25.737  2.055  4 0.726 0.726
+
+
+thresholds <- paste0("d", 1:4)
+
+DIF_RS4_thresholds <- lapply(thresholds, function(threshold) {
+  
+  result <- DIF(
+    mg_partial_thresholds_sex,
+    which.par = threshold,
+    items2test = 4,
+    scheme = "drop",
+    p.adjust = "none"
+  )
+  
+  result$threshold <- threshold
+  result
+})
+
+DIF_RS4_thresholds <- do.call(rbind, DIF_RS4_thresholds)
+DIF_RS4_thresholds
+
+
+DIF_RS4_thresholds$p_BH <- p.adjust(
+  DIF_RS4_thresholds$p,
+  method = "BH"
+)
+
+
+####Apply the correction for multiple comparisons
+DIF_RS4_thresholds$p_BH <- p.adjust(
+  DIF_RS4_thresholds$p,
+  method = "BH"
+)
+
+DIF_RS4_thresholds[
+  ,
+  c("threshold", "X2", "df", "p", "p_BH")
+]
+
+
+
+DIF_F2_thresholds <- DIF(
+  mg_partial_thresholds_sex,
+  which.par = c("d1", "d2", "d3", "d4"),
+  items2test = 8:13,
+  scheme = "drop",
+  p.adjust = "BH"
+)
+
+# DIF_F2_thresholds
+# 
+# > DIF_F2_thresholds
+# groups converged    AIC  SABIC     HQ    BIC     X2 df     p adj_p
+# rs8  Female,Male      TRUE  1.564  8.651  9.071 21.356  6.436  4 0.169 0.472
+# rs11 Female,Male      TRUE  2.460  9.547  9.967 22.252   5.54  4 0.236 0.472
+# rs12 Female,Male      TRUE  7.243 14.330 14.751 27.035  0.757  4 0.944 0.944
+# rs13 Female,Male      TRUE  5.916 13.003 13.424 25.708  2.084  4  0.72 0.944
+# rs14 Female,Male      TRUE  6.842 13.929 14.349 26.634  1.158  4 0.885 0.944
+# rs15 Female,Male      TRUE -4.032  3.055  3.476 15.760 12.032  4 0.017 0.103
+
+###Summary of DIF by sex############
+# rs4 (Factor 1): significant slope DIF and significant threshold DIF.
+# rs8 (Factor 2): significant slope DIF, but no threshold DIF.
+# All other items: no statistically significant DIF after BH correction.
+######Action, Refit 12 items, omitting RS4#############
+
+
+#Step 1: Create the 12-item dataset (omissions: RS4, RS9, RS10)
+# Remove rs4 from the 13-item dataframe
+RS_items12 <- RS_items13[, c(
+  "rs1", "rs2", "rs3",
+  "rs5", "rs6", "rs7",
+  "rs8", "rs11", "rs12", "rs13", "rs14", "rs15",
+  "male", "sex"
+)]
+
+# Response items only
+items12 <- RS_items12[, c(
+  "rs1", "rs2", "rs3",
+  "rs5", "rs6", "rs7",
+  "rs8", "rs11", "rs12", "rs13", "rs14", "rs15"
+)]
+
+names(items12)
+#[1] "rs1"  "rs2"  "rs3"  "rs5"  "rs6"  "rs7"  "rs8"  "rs11" "rs12" "rs13" "rs14" "rs15"
+
+####Re-assign Item 8 to Factor 1
+
+#Step 2: Fit 12-item GRM
+model_simple12 <- "
+F1 = 1-7
+F2 = 8-12
+COV = F1*F2
+"
+
+#Inspect Item-Level Fit
+coef(fit_simple12, IRTpars = TRUE, simplify = TRUE)
+
+#######Inspect if RS8's negative wording warrants reverse-scoring######
+round(
+  cor(items13, use = "pairwise.complete.obs")["rs8", ],
+  3
+)
+###########Result: All correlations positive with either factor#########
+##########Try and see if RS8 should be allowed to cross-load############
+
+#Note that RS8 = variable #7 because RS4 is omitted
+#it loads both on Factor 1 and Factor 2
+model_cross8 <- "
+F1 = 1-7
+F2 = 7-12
+COV = F1*F2
+"
+
+fit_cross8 <- mirt(
+  data     = items12,
+  model    = model_cross8,
+  itemtype = "graded",
+  method   = "EM",
+  quadpts  = 41,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 20000)
+)
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+M2(fit_cross8, type = "C2")
+
+# M2 df p      RMSEA    RMSEA_5   RMSEA_95      SRMSR       TLI       CFI
+# stats 411.536 52 0 0.08153665 0.07427638 0.08891003 0.04891887 0.9833686 0.9868965
+
+
+fit_simple12 <- mirt(
+  data     = items12,
+  model    = model_simple12,
+  itemtype = "graded",
+  method   = "EM",
+  quadpts  = 41,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 5000)
+)
+
+M2(fit_simple12, type = "C2")
+
+# M2 df p      RMSEA    RMSEA_5  RMSEA_95      SRMSR       TLI       CFI
+# stats 440.4723 53 0 0.08384279 0.07666035 0.0911292 0.04813824 0.9824145 0.9858783
+
+anova(fit_simple12, fit_cross8)
+
+# Factor correlation
+coef(fit_cross8, simplify = TRUE)$cov
+
+#####Test item-level fit of cross-loaded model
+IF_cross8 <- itemfit(
+  fit_cross8,
+  fit_stats = "S_X2"
+)
+
+IF_cross8$p_BH <- p.adjust(IF_cross8$p.S_X2, method = "BH")
+
+IF_cross8
+# item    S_X2 df.S_X2 RMSEA.S_X2 p.S_X2  p_BH
+# 1   rs1  90.828      78      0.013  0.152 0.203
+# 2   rs2  82.364      74      0.010  0.237 0.258
+# 3   rs3  71.771      73      0.000  0.519 0.519
+# 4   rs5  96.915      74      0.017  0.038 0.066
+# 5   rs6 106.988      81      0.018  0.028 0.056
+# 6   rs7  94.072      85      0.010  0.235 0.258
+# 7   rs8 362.078     132      0.041  0.000 0.000
+# 8  rs11 152.878     115      0.018  0.010 0.038
+# 9  rs12 122.014      93      0.017  0.023 0.056
+# 10 rs13 121.657     102      0.014  0.090 0.135
+# 11 rs14 130.765      97      0.018  0.013 0.038
+# 12 rs15 155.581     106      0.021  0.001 0.007
+
+###Compare Itemfits between simple and crossloaded
+IF_simple <- itemfit(
+  fit_simple12,
+  fit_stats = "S_X2"
+)
+
+IF_cross8 <- itemfit(
+  fit_cross8,
+  fit_stats = "S_X2"
+)
+
+IF_simple
+# item    S_X2 df.S_X2 RMSEA.S_X2 p.S_X2
+# 1   rs1  91.975      74      0.015  0.077
+# 2   rs2  85.959      74      0.012  0.161
+# 3   rs3  73.028      72      0.004  0.444
+# 4   rs5  96.861      72      0.018  0.027
+# 5   rs6 111.743      78      0.020  0.007
+# 6   rs7  90.363      84      0.009  0.298
+# 7   rs8 341.292     135      0.038  0.000
+# 8  rs11 156.601     116      0.018  0.007
+# 9  rs12 130.254     101      0.017  0.027
+# 10 rs13 119.162     103      0.012  0.132
+# 11 rs14 132.491      97      0.019  0.010
+# 12 rs15 160.755     108      0.022  0.001
+IF_cross8
+# 1   rs1  90.828      78      0.013  0.152
+# 2   rs2  82.364      74      0.010  0.237
+# 3   rs3  71.771      73      0.000  0.519
+# 4   rs5  96.915      74      0.017  0.038
+# 5   rs6 106.988      81      0.018  0.028
+# 6   rs7  94.072      85      0.010  0.235
+# 7   rs8 362.078     132      0.041  0.000
+# 8  rs11 152.878     115      0.018  0.010
+# 9  rs12 122.014      93      0.017  0.023
+# 10 rs13 121.657     102      0.014  0.090
+# 11 rs14 130.765      97      0.018  0.013
+# 12 rs15 155.581     106      0.021  0.001
+
+
+
+#Whether allowed to crossload or made to load only on Factor 1, RS8 does not fit well at the 
+##item level. Also it contributes to slope DIF. Action: Drop
+# rs8 discrimination parameters
+coef(fit_cross8, IRTpars = TRUE, simplify = TRUE)$items["rs8", ]
+coef(fit_simple12, IRTpars = TRUE, simplify = TRUE)$items["rs8", ]
+
+######################################11 Item Model#########################
+######################################Invariance Testing#####################
+#####################################Omitted: RS4, RS8 from F1##############
+#####################################Omitted: RS8, RS9, RS10 from F2########
+items11 <- RS_items12[, c(
+  "rs1", "rs2", "rs3",
+  "rs5", "rs6", "rs7",
+  "rs11", "rs12", "rs13", "rs14", "rs15"
+)]
+
+RS_items11 <- RS_items12 %>% select(-"rs8")
+
+model_simple11 <- "
+F1 = 1-6
+F2 = 7-11
+COV = F1*F2
+"
+
+fit_simple11 <- mirt(
+  data     = items11,
+  model    = model_simple11,
+  itemtype = "graded",
+  method   = "EM",
+  quadpts  = 41,
+  SE       = TRUE,
+  SE.type  = "Oakes",
+  TOL      = 1e-5,
+  technical = list(NCYCLES = 20000)
+)
+
+M2(fit_simple11, type = "C2")
+# 
+# M2 df p      RMSEA    RMSEA_5   RMSEA_95     SRMSR       TLI     CFI
+# stats 353.785 43 0 0.08336411 0.07540461 0.09147191 0.0462819 0.9847023 0.98804
+
+IF_11 <- itemfit(
+  fit_simple11,
+  fit_stats = "S_X2"
+)
+
+IF_11$p_Bonf <- p.adjust(
+  IF_11$p.S_X2,
+  method = "bonferroni"
+)
+
+IF_11
+# 
+# 
+# item    S_X2 df.S_X2 RMSEA.S_X2 p.S_X2 p_Bonf
+# 1   rs1  88.488      72      0.015  0.091  0.999
+# 2   rs2  55.443      69      0.000  0.881  1.000
+# 3   rs3  79.988      66      0.014  0.115  1.000
+# 4   rs5  91.693      70      0.017  0.042  0.463
+# 5   rs6  98.430      74      0.018  0.030  0.334
+# 6   rs7 107.513      80      0.018  0.022  0.240
+# 7  rs11 143.399     105      0.019  0.008  0.084
+# 8  rs12  87.091      89      0.000  0.537  1.000
+# 9  rs13 123.307      93      0.018  0.019  0.214
+# 10 rs14 130.225      91      0.020  0.004  0.049
+# 11 rs15 163.675     100      0.025  0.000  0.001
+
+#Conclusion: generally good/acceptable fit with some evidence of residual global misfit.
+
+#Compare fit_simple11 with 11-item model allowing rs14 and rs15 to load on both models
+
+colnames(items11)
+
+model_cross14_15_11 <- "
+F1 = 1-6, 10, 11
+F2 = 7-11
+COV = F1*F2
+"
+
+fit_cross14_15_11 <- mirt(
+  data = items11,
+  model = model_cross14_15_11,
+  itemtype = "graded",
+  SE = TRUE,
+  SE.type = "Oakes",
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  technical = list(NCYCLES = 20000)
+)
+
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+
+anova(fit_simple11, fit_cross14_15_11)
+# AIC    SABIC       HQ      BIC    logLik      X2 df p
+# fit_simple11      24209.72 24308.94 24314.82 24486.80 -12048.86             
+# fit_cross14_15_11 24086.24 24189.01 24195.10 24373.22 -11985.12 127.471  2 0
+
+# > M2(fit_simple11, type = "C2")
+# M2 df p      RMSEA    RMSEA_5   RMSEA_95     SRMSR       TLI     CFI
+# stats 353.785 43 0 0.08336411 0.07540461 0.09147191 0.0462819 0.9847023 0.98804
+
+
+# > M2(fit_cross14_15_11, type = "C2")
+# M2 df p      RMSEA   RMSEA_5   RMSEA_95      SRMSR       TLI       CFI
+# stats 178.1278 41 0 0.05670927 0.0482933 0.06534891 0.02868144 0.9929209 0.9947229
+
+
+####################Verify that the algorithm converges to same log-likelihood
+####################Do this by assigning a random seed#######################
+set.seed(1234)
+
+fit_cross_random1 <- mirt(
+  items11,
+  model_cross14_15_11,
+  itemtype = "graded",
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = TRUE,
+  SE.type = "Oakes",
+  GenRandomPars = TRUE,
+  technical = list(NCYCLES = 20000)
+)
+
+
+#Compare results:
+logLik(fit_cross14_15_11)
+logLik(fit_cross_random1)
+
+
+
+
+
+###################Get the item parameters of fit_cross14_15_11############
+
+
+IF_11_cross <- itemfit(
+  fit_cross14_15_11,
+  fit_stats = "S_X2"
+)
+
+IF_11_cross$p_Bonf <- p.adjust(
+  IF_11_cross$p.S_X2,
+  method = "bonferroni"
+)
+
+IF_11_cross
+
+IF_11_cross
+# item    S_X2 df.S_X2 RMSEA.S_X2 p.S_X2 p_Bonf
+# 1   rs1  89.238      72      0.015  0.082  0.905
+# 2   rs2  55.370      69      0.000  0.883  1.000
+# 3   rs3  80.098      66      0.014  0.114  1.000
+# 4   rs5  92.053      70      0.017  0.040  0.438
+# 5   rs6  98.428      74      0.018  0.030  0.334
+# 6   rs7 109.798      81      0.018  0.018  0.201
+# 7  rs11 140.186     107      0.017  0.017  0.190
+# 8  rs12 102.523      96      0.008  0.306  1.000
+# 9  rs13 129.882     100      0.017  0.024  0.263
+# 10 rs14  92.820      78      0.014  0.121  1.000
+# 11 rs15 145.138      91      0.024  0.000  0.003
+
+####Compare with simple model
+
+IF_11
+# 
+# 
+# item    S_X2 df.S_X2 RMSEA.S_X2 p.S_X2 p_Bonf
+# 1   rs1  88.488      72      0.015  0.091  0.999
+# 2   rs2  55.443      69      0.000  0.881  1.000
+# 3   rs3  79.988      66      0.014  0.115  1.000
+# 4   rs5  91.693      70      0.017  0.042  0.463
+# 5   rs6  98.430      74      0.018  0.030  0.334
+# 6   rs7 107.513      80      0.018  0.022  0.240
+# 7  rs11 143.399     105      0.019  0.008  0.084
+# 8  rs12  87.091      89      0.000  0.537  1.000
+# 9  rs13 123.307      93      0.018  0.019  0.214
+# 10 rs14 130.225      91      0.020  0.004  0.049
+# 11 rs15 163.675     100      0.025  0.000  0.001
+
+
+
+
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
