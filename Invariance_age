@@ -1,1 +1,939 @@
+#####Invariance Testing by Collapsed Age Group##############
+# Configural: item parameters free across groups
+mg_cross_config_age <- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group =  RS_items11$age_cat3,
+  itemtype = "graded",
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = TRUE,
+  SE.type = "Oakes",
+  technical = list(NCYCLES = 20000)
+)
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
 
+#Did not converge increase cycles
+start_values <- mod2values(mg_cross_config_age)
+
+mg_cross_config_age2 <- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group = RS_items11$age_cat3,
+  itemtype = "graded",
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = TRUE,
+  SE.type = "Oakes",
+  pars = start_values,
+  technical = list(NCYCLES = 20000)
+)
+
+extract.mirt(mg_cross_config_age2, "converged") #TRUE
+extract.mirt(mg_cross_config_age2, "iterations")
+logLik(mg_cross_config_age2) #-11887.39
+
+
+#overwrite the old object
+mg_cross_config_age <- mg_cross_config_age2
+rm(mg_cross_config_age2)
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+
+
+# Metric: discrimination parameters equal
+mg_cross_metric_age <- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group =  RS_items11$age_cat3,
+  itemtype = "graded",
+  invariance = "slopes",
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = FALSE,
+  technical = list(NCYCLES = 20000)
+)
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+extract.mirt(mg_cross_metric_age, "converged")
+# Scalar: discrimination and threshold parameters equal
+mg_cross_scalar_age<- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group =  RS_items11$age_cat3,
+  itemtype = "graded",
+  invariance = c("slopes", "intercepts"),
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = FALSE,
+  technical = list(NCYCLES = 20000)
+)
+extract.mirt(mg_cross_scalar_age, "converged")
+
+mg_cross_scalar_age <- mg_cross_scalar_age_SEM
+rm(mg_cross_scalar_age_SEM)
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+
+anova(mg_cross_scalar_age, mg_cross_metric_age, mg_cross_config_age)
+# AIC    SABIC       HQ      BIC    logLik      X2 df     p
+# mg_cross_scalar_age 24088.73 24195.04 24201.34 24385.61 -11984.36                 
+# mg_cross_metric_age 24106.40 24368.63 24384.18 24838.69 -11905.20 158.331 88     0
+# mg_cross_config_age 24122.79 24431.08 24449.37 24983.73 -11887.39  35.613 26 0.099
+
+##############Detect which thresholds have DIF
+
+dif_thresh_age <- DIF(
+  mg_cross_scalar_age,
+  which.par = c("d1", "d2", "d3", "d4"),
+  items2test = 1:11,
+  scheme = "drop",
+  p.adjust = "BH"
+)
+
+dif_thresh_age
+# groups converged    AIC  SABIC     HQ    BIC     X2 df     p adj_p
+# rs1  18to34,35to54,55plus      TRUE -1.377 12.797 13.638 38.206 17.377  8 0.026 0.097
+# rs2  18to34,35to54,55plus      TRUE -6.952  7.223  8.063 32.632 22.952  8 0.003 0.038
+# rs3  18to34,35to54,55plus      TRUE -0.009 14.165 15.006 39.574 16.009  8 0.042 0.116
+# rs5  18to34,35to54,55plus      TRUE  3.418 17.592 18.433 43.001 12.582  8 0.127 0.155
+# rs6  18to34,35to54,55plus      TRUE  4.312 18.486 19.327 43.895 11.688  8 0.166 0.182
+# rs7  18to34,35to54,55plus      TRUE  1.838 16.012 16.853 41.421 14.162  8 0.078 0.142
+# rs11 18to34,35to54,55plus      TRUE  1.407 15.582 16.422 40.991 14.593  8 0.068 0.142
+# rs12 18to34,35to54,55plus      TRUE -4.507  9.667 10.508 35.076 20.507  8 0.009 0.047
+# rs13 18to34,35to54,55plus      TRUE  3.269 17.444 18.285 42.853 12.731  8 0.121 0.155
+# rs14 18to34,35to54,55plus      TRUE  5.666 19.840 20.681 45.249 10.334  8 0.242 0.242
+# rs15 18to34,35to54,55plus      TRUE  2.529 16.703 17.544 42.112 13.471  8 0.097 0.152
+
+
+# rs2: test each threshold separately
+rs2_d1 <- DIF(
+ mg_cross_scalar_age,
+  which.par = "d1",
+  items2test = "rs2",
+  scheme = "drop"
+)
+rs2_d1
+
+rs2_d2 <- DIF(
+ mg_cross_scalar_age,
+  which.par = "d2",
+  items2test = "rs2",
+  scheme = "drop"
+)
+
+rs2_d3 <- DIF(
+ mg_cross_scalar_age,
+  which.par = "d3",
+  items2test = "rs2",
+  scheme = "drop"
+)
+
+rs2_d4 <- DIF(
+ mg_cross_scalar_age,
+  which.par = "d4",
+  items2test = "rs2",
+  scheme = "drop"
+)
+
+# rs12: test each threshold separately
+rs12_d1 <- DIF(
+ mg_cross_scalar_age,
+  which.par = "d1",
+  items2test = "rs12",
+  scheme = "drop"
+)
+
+rs12_d2 <- DIF(
+ mg_cross_scalar_age,
+  which.par = "d2",
+  items2test = "rs12",
+  scheme = "drop"
+)
+
+rs12_d3 <- DIF(
+ mg_cross_scalar_age,
+  which.par = "d3",
+  items2test = "rs12",
+  scheme = "drop"
+)
+
+rs12_d4 <- DIF(
+ mg_cross_scalar_age,
+  which.par = "d4",
+  items2test = "rs12",
+  scheme = "drop"
+)
+
+rs2_d1
+rs2_d2
+rs2_d3
+rs2_d4
+
+rs12_d1
+rs12_d2
+rs12_d3
+rs12_d4
+
+
+
+
+########See which p-values are still significant after BH adjustment
+p_thresholds <- c(
+  rs2_d1  = 0.017,
+  rs2_d2  = 0.022,
+  rs2_d3  = 0.006,
+  rs2_d4  = 0.043,
+  rs12_d1 = 0.076,
+  rs12_d2 = 0.135,
+  rs12_d3 = 0.107,
+  rs12_d4 = 0.0003  
+)
+
+p.adjust(p_thresholds, method = "BH")
+
+################Plot the differences################
+library(mirt)
+
+# Age groups
+age_groups <- c("18to34", "35to54", "55plus")
+
+# Theta values for each factor
+theta_seq <- seq(-2, 2, length.out = 201)
+
+# RS2 loads on Factor 1:
+# vary F1 and hold F2 at zero
+Theta_F1 <- cbind(
+  F1 = theta_seq,
+  F2 = 0
+)
+
+# RS12 loads on Factor 2:
+# hold F1 at zero and vary F2
+Theta_F2 <- cbind(
+  F1 = 0,
+  F2 = theta_seq
+)
+
+# Function to obtain a cumulative ICC:
+# d1 = P(X >= 1)
+# d2 = P(X >= 2)
+# d3 = P(X >= 3)
+# d4 = P(X >= 4)
+get_cum_icc <- function(model, item_name, threshold, groups, Theta) {
+  
+  item_no <- match(item_name, colnames(items11))
+  
+  out <- lapply(groups, function(g) {
+    
+    mod_g  <- extract.group(model, g)
+    item_g <- extract.item(mod_g, item_no)
+    
+    pr <- probtrace(item_g, Theta)
+    
+    # Ensure rows correspond to theta values
+    if (nrow(pr) != nrow(Theta) && ncol(pr) == nrow(Theta)) {
+      pr <- t(pr)
+    }
+    
+    # Cumulative probability P(X >= threshold)
+    as.numeric(
+      rowSums(
+        pr[, (threshold + 1):ncol(pr), drop = FALSE]
+      )
+    )
+  })
+  
+  out <- do.call(cbind, out)
+  colnames(out) <- groups
+  
+  out
+}
+
+############Create the cumulative ICCs##########
+rs2_d1_cum <- get_cum_icc(
+  mg_cross_metric_age, "rs2", 1,
+  age_groups, Theta_F1
+)
+
+rs2_d2_cum <- get_cum_icc(
+  mg_cross_metric_age, "rs2", 2,
+  age_groups, Theta_F1
+)
+
+rs2_d3_cum <- get_cum_icc(
+  mg_cross_metric_age, "rs2", 3,
+  age_groups, Theta_F1
+)
+
+rs12_d4_cum <- get_cum_icc(
+  mg_cross_metric_age, "rs12", 4,
+  age_groups, Theta_F2
+)
+
+##########Verify the dimensions####
+dim(rs2_d1_cum)
+dim(rs2_d2_cum)
+dim(rs2_d3_cum)
+dim(rs12_d4_cum)
+
+length(theta_seq)
+
+##################Plot the curves##############
+plot_cum_icc <- function(x, theta, main, xlab, ylab) {
+  # Line colors: solid line grey
+  line_cols <- c("grey50", "red", "blue")
+  matplot(
+    theta,
+    x,
+    type = "l",
+    lty = 1:3,
+    col = line_cols,
+    lwd = 2,
+    xlab = xlab,
+    ylab = ylab,
+    main = main,
+    ylim = c(0, 1)
+  )
+  
+  legend(
+    "bottomright",
+    legend = colnames(x),
+    lty = 1:3,
+    col = line_cols,
+    lwd = 1,
+    bty = "n"
+  )
+}
+par(
+  mfrow = c(2, 2),
+  mar = c(4.5, 4.5, 3, 1),
+  oma = c(0, 0, 4.5, 0)
+)
+
+plot_cum_icc(
+  rs2_d1_cum,
+  theta_seq,
+  main = "RS2: Threshold 1: Not at all | Little",
+  xlab = "Latent Level of Factor 1",
+  ylab = "P(RS2 >= 1)"
+)
+
+plot_cum_icc(
+  rs2_d2_cum,
+  theta_seq,
+  main = "RS2: Threshold 2: Little | Medium",
+  xlab = "Latent Level of Factor 1",
+  ylab = "P(RS2 >= 2)"
+)
+
+plot_cum_icc(
+  rs2_d3_cum,
+  theta_seq,
+  main = "RS2: Threshold 3: Medium | Very",
+  xlab = "Latent Level of Factor 1",
+  ylab = "P(RS2 >= 3)"
+)
+
+plot_cum_icc(
+  rs12_d4_cum,
+  theta_seq,
+  main = "RS12: Threshold 4: Very | Extremely",
+  xlab = "Latent Level of Factor 2",
+  ylab = "P(RS12 >= 4)"
+)
+
+# Overall title
+mtext(
+  "Cumulative Item Characteristic Curves of Items with Threshold DIF by Age Group",
+  outer = TRUE,
+  side = 3,
+  line = 2.5,
+  font = 2,
+  cex = 1.2
+)
+
+# Overall subtitle
+mtext(
+  "Level of the other factor held at zero",
+  outer = TRUE,
+  side = 3,
+  line = 1,
+  cex = 0.9
+)
+
+par(mfrow = c(1, 1))
+
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+
+
+#########################Try to free the 4 RS15 parameters of the scalar model##########
+# Start fresh from the full scalar age model
+vals_partial_age <- mod2values(mg_cross_scalar_age)
+
+# All items initially constrained for scalar invariance
+anchor_items_age <- colnames(items11)
+
+# Free only the four significant age-threshold DIF effects:
+# RS2 d1, d2, d3 and RS12 d4
+vals_partial_age$const[
+  vals_partial_age$const %in% c(18, 19, 20, 45)
+] <- "none"
+
+# Check the threshold constraints for RS2 and RS12
+vals_partial_age[
+  vals_partial_age$item %in% c("rs2", "rs12") &
+    vals_partial_age$name %in% c("d1", "d2", "d3", "d4"),
+  c("group", "item", "name", "parnum", "value", "const")
+]
+
+# All items initially serve as scalar-invariant items.
+# Specific threshold constraints for RS2 and RS12
+# are freed separately in vals_partial.
+anchor_items_age <- colnames(items11)
+
+########Fit the model
+mg_cross_partial_scalar_age <- multipleGroup(
+  items11,
+  model_cross14_15_11,
+  group = RS_items11$age_cat3,
+  itemtype = "graded",
+  pars = vals_partial_age,
+  method = "EM",
+  quadpts = 41,
+  TOL = 1e-5,
+  SE = FALSE,
+  technical = list(NCYCLES = 20000)
+)
+
+anova(
+   mg_cross_scalar_age,
+  mg_cross_partial_scalar_age,
+  mg_cross_metric_age,
+  mg_cross_config_age
+)
+# AIC    SABIC       HQ      BIC    logLik      X2 df     p
+# mg_cross_scalar_age         24088.73 24195.04 24201.34 24385.61 -11984.36                 
+# mg_cross_partial_scalar_age 24078.06 24198.54 24205.69 24414.52 -11971.03  26.673  8 0.001
+# mg_cross_metric_age         24106.40 24368.63 24384.18 24838.69 -11905.20 131.658 80     0
+# mg_cross_config_age         24122.79 24431.08 24449.37 24983.73 -11887.39  35.613 26 0.099
+
+
+save.image("~/Students/Carley/PhD/RS survey/Re-anlaysis/grm_2_factor.RData")
+
+
+#Now do DRF by age group by subscale level
+
+drf_total_age <- DRF(
+  mg_cross_partial_scalar_age,
+  focal_items = 1:11,
+  pairwise = TRUE
+)
+
+drf_total_age
+
+####The right hand group is the reference
+# groups n_focal_items  sDRF  uDRF  dDRF
+# 1 18to34,35to54            11 0.043 0.092 0.116
+# 2 18to34,55plus            11 0.110 0.149 0.178
+# 3 35to54,55plus            11 0.065 0.065 0.079
+
+
+
+#Separate DRFs for Factor 1 and Factor 2
+drf_F1_age <- DRF(
+  mg_cross_partial_scalar_age,
+  focal_items = c(1:6, 10:11),
+  pairwise = TRUE
+)
+
+drf_F2_age <- DRF(
+  mg_cross_partial_scalar_age,
+  focal_items = 7:11,
+  pairwise = TRUE
+)
+
+drf_F1_age
+# groups n_focal_items  sDRF  uDRF  dDRF
+# 1 18to34,35to54             8 0.084 0.084 0.106
+# 2 18to34,55plus             8 0.149 0.149 0.183
+# 3 35to54,55plus             8 0.064 0.064 0.078
+
+drf_F2_age
+# groups n_focal_items   sDRF  uDRF  dDRF
+# 1 18to34,35to54             5 -0.041 0.041 0.086
+# 2 18to34,55plus             5 -0.040 0.040 0.083
+# 3 35to54,55plus             5  0.001 0.001 0.004
+
+
+###########DRF by Age Groups Factor 2###############################
+#######################################Now Plot partial_scalar_sex for Factor 2#############
+library(mirt)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(patchwork)
+
+# Factor 2 items used in raw subscale scoring
+F2_names <- c("rs11", "rs12", "rs13", "rs14", "rs15")
+
+F2_items <- match(F2_names, colnames(items11))
+stopifnot(!anyNA(F2_items))
+
+# Factor 2 range; Factor 1 is held at zero
+theta_F2 <- seq(-3.5, 3.5, length.out = 501)
+
+Theta <- cbind(
+  F1 = 0,
+  F2 = theta_F2
+)
+
+# Calculate the expected Factor 2 summed score for one group
+expected_F2_score <- function(model, group_name) {
+  
+  group_model <- extract.group(model, group_name)
+  
+  item_scores <- sapply(F2_items, function(item_number) {
+    
+    item_object <- extract.item(
+      group_model,
+      item_number
+    )
+    
+    category_probabilities <- probtrace(
+      item_object,
+      Theta
+    )
+    
+    category_scores <- 0:(ncol(category_probabilities) - 1)
+    
+    as.numeric(
+      category_probabilities %*% category_scores
+    )
+  })
+  
+  rowSums(item_scores)
+}
+
+# Expected subscale scores by age
+# Expected Factor 2 scores by age group
+score_data_age <- data.frame(
+  theta_F2 = theta_F2,
+  `18to34` = expected_F2_score(
+    mg_cross_partial_scalar_age,
+    "18to34"
+  ),
+  `35to54` = expected_F2_score(
+    mg_cross_partial_scalar_age,
+    "35to54"
+  ),
+  `55plus` = expected_F2_score(
+    mg_cross_partial_scalar_age,
+    "55plus"
+  ),
+  check.names = FALSE
+)
+
+# Long form for plotting the three expected-score curves
+score_long_age <- score_data_age |>
+  pivot_longer(
+    cols = c(`18to34`, `35to54`, `55plus`),
+    names_to = "age_group",
+    values_to = "expected_score"
+  ) |>
+  mutate(
+    age_group = factor(
+      age_group,
+      levels = c("18to34", "35to54", "55plus"),
+      labels = c("18–34", "35–54", "55+")
+    )
+  )
+
+# Differences relative to the middle age group (35–54)
+difference_data_age <- score_data_age |>
+  transmute(
+    theta_F2 = theta_F2,
+    `18–34 minus 35–54` = `18to34` - `35to54`,
+    `55+ minus 35–54`   = `55plus` - `35to54`
+  ) |>
+  pivot_longer(
+    cols = -theta_F2,
+    names_to = "comparison",
+    values_to = "score_difference"
+  )
+
+
+# ---------------------------------------------------------
+# Panel A: Expected Factor 2 summed scores
+# ---------------------------------------------------------
+
+p_scores_age <- ggplot(
+  score_long_age,
+  aes(
+    x = theta_F2,
+    y = expected_score,
+    colour = age_group,
+    linetype = age_group
+  )
+) +
+  geom_line(linewidth = 1.1) +
+  scale_colour_manual(
+    name = "Age Group",
+    values = c(
+      "18–34" = "red",
+      "35–54" = "black",
+      "55+"   = "blue"
+    )
+  ) +
+  scale_linetype_manual(
+    name = "Age Group",
+    values = c(
+      "18–34" = "solid",
+      "35–54" = "dashed",
+      "55+"   = "dotdash"
+    )
+  ) +
+  scale_x_continuous(
+    breaks = seq(-3, 3, by = 1)
+  ) +
+  scale_y_continuous(
+    limits = c(0, 20),
+    breaks = seq(0, 20, by = 5)
+  ) +
+  labs(
+    title = "A. Expected Factor 2 Summed Scores",
+    subtitle = "Factor 1 held at zero",
+    x = NULL,
+    y = "Expected Factor 2 Score"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold")
+  )
+
+
+# ---------------------------------------------------------
+# Panel B: Differences relative to age 35–54
+# ---------------------------------------------------------
+
+p_difference_age <- ggplot(
+  difference_data_age,
+  aes(
+    x = theta_F2,
+    y = score_difference,
+    colour = comparison,
+    linetype = comparison
+  )
+) +
+  geom_hline(
+    yintercept = 0,
+    colour = "grey55",
+    linewidth = 0.5
+  ) +
+  geom_line(linewidth = 1) +
+  scale_colour_manual(
+    name = "Comparison",
+    values = c(
+      "18–34 minus 35–54" = "red",
+      "55+ minus 35–54"   = "blue"
+    )
+  ) +
+  scale_linetype_manual(
+    name = "Comparison",
+    values = c(
+      "18–34 minus 35–54" = "solid",
+      "55+ minus 35–54"   = "dashed"
+    )
+  ) +
+  scale_x_continuous(
+    breaks = seq(-3, 3, by = 1)
+  ) +
+  labs(
+    title = "B. Difference in Expected Scores",
+    x = "Latent Level of Factor 2: R/S Expectations",
+    y = "Difference From Age 35–54"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    plot.title = element_text(face = "bold")
+  )
+
+
+# ---------------------------------------------------------
+# Combine panels
+# ---------------------------------------------------------
+
+figure_F2_age <- p_scores_age / p_difference_age +
+  plot_layout(
+    heights = c(2, 1),
+    guides = "collect"
+  ) +
+  plot_annotation(
+    title = "Factor 2 Differential Response Functioning by Age",
+    subtitle = paste0(
+      "Reference group: age 35–54\n",
+      "18–34 vs 35–54: sDRF = -0.041, uDRF = 0.041, dDRF = 0.086\n",
+      "55+ vs 35–54: sDRF = 0.001, uDRF = 0.001, dDRF = 0.004"
+    )
+  ) &
+  theme(
+    legend.position = "bottom"
+  )
+
+figure_F2_age
+
+
+# Save figure
+ggsave(
+  filename = "RS_F2_DRF_age.png",
+  plot = figure_F2_age,
+  width = 10,
+  height = 8,
+  units = "in",
+  dpi = 300,
+  bg = "white"
+)
+
+
+#########################Rulers by Age Groups#############
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# ------------------------------------------------------------
+# 1. Expected F2 score curves for each age group
+# ------------------------------------------------------------
+
+theta_grid <- seq(-3, 3, length.out = 501)
+
+curve_18to34 <- data.frame(
+  theta = theta_grid,
+  expected_score = expected_F2_score(
+    mg_cross_partial_scalar_age,
+    "18to34"
+  )
+)
+
+curve_35to54 <- data.frame(
+  theta = theta_grid,
+  expected_score = expected_F2_score(
+    mg_cross_partial_scalar_age,
+    "35to54"
+  )
+)
+
+curve_55plus <- data.frame(
+  theta = theta_grid,
+  expected_score = expected_F2_score(
+    mg_cross_partial_scalar_age,
+    "55plus"
+  )
+)
+
+# ------------------------------------------------------------
+# 2. Diagnostic plot: check monotonicity
+# ------------------------------------------------------------
+
+plot(
+  curve_18to34$theta,
+  curve_18to34$expected_score,
+  type = "l",
+  lty = 1,
+  lwd = 2,
+  xlab = expression(paste("F2 ", theta)),
+  ylab = "F2 Expected Score",
+  ylim = range(
+    curve_18to34$expected_score,
+    curve_35to54$expected_score,
+    curve_55plus$expected_score
+  )
+)
+
+lines(
+  curve_35to54$theta,
+  curve_35to54$expected_score,
+  lty = 2,
+  lwd = 2
+)
+
+lines(
+  curve_55plus$theta,
+  curve_55plus$expected_score,
+  lty = 3,
+  lwd = 2
+)
+
+legend(
+  "topleft",
+  legend = c("18–34", "35–54", "55+"),
+  lty = c(1, 2, 3),
+  lwd = 2,
+  bty = "n"
+)
+
+# ------------------------------------------------------------
+# 3. Convert expected raw scores into theta locations
+# ------------------------------------------------------------
+
+score_marks <- 1:19
+
+theta_18to34 <- approx(
+  x = curve_18to34$expected_score,
+  y = curve_18to34$theta,
+  xout = score_marks
+)$y
+
+theta_35to54 <- approx(
+  x = curve_35to54$expected_score,
+  y = curve_35to54$theta,
+  xout = score_marks
+)$y
+
+theta_55plus <- approx(
+  x = curve_55plus$expected_score,
+  y = curve_55plus$theta,
+  xout = score_marks
+)$y
+
+ruler_age <- bind_rows(
+  data.frame(
+    group = "18–34",
+    score = score_marks,
+    theta = theta_18to34
+  ),
+  data.frame(
+    group = "35–54",
+    score = score_marks,
+    theta = theta_35to54
+  ),
+  data.frame(
+    group = "55+",
+    score = score_marks,
+    theta = theta_55plus
+  )
+)
+
+# Inspect the score locations
+ruler_age |>
+  filter(score %in% 10:19) |>
+  arrange(score, group)
+
+# ------------------------------------------------------------
+# 4. F2 ruler plot by age
+# ------------------------------------------------------------
+
+ruler_age <- ruler_age |>
+  mutate(
+    y = case_when(
+      group == "18–34" ~ 3,
+      group == "35–54" ~ 2,
+      group == "55+"   ~ 1
+    ),
+    highlight = score == 15
+  )
+
+ggplot(ruler_age, aes(x = theta, y = y)) +
+  
+  # Horizontal rulers
+  annotate(
+    "segment",
+    x = -2.5, xend = 2.5,
+    y = 3, yend = 3,
+    linewidth = 0.8
+  ) +
+  annotate(
+    "segment",
+    x = -2.5, xend = 2.5,
+    y = 2, yend = 2,
+    linewidth = 0.8
+  ) +
+  annotate(
+    "segment",
+    x = -2.5, xend = 2.5,
+    y = 1, yend = 1,
+    linewidth = 0.8
+  ) +
+  
+  # Ordinary score notches
+  geom_segment(
+    data = subset(ruler_age, !highlight),
+    aes(
+      x = theta,
+      xend = theta,
+      y = y - 0.08,
+      yend = y + 0.08
+    ),
+    linewidth = 0.5
+  ) +
+  
+  # Highlight score 15
+  geom_segment(
+    data = subset(ruler_age, highlight),
+    aes(
+      x = theta,
+      xend = theta,
+      y = y - 0.13,
+      yend = y + 0.13
+    ),
+    color = "red",
+    linewidth = 1.2
+  ) +
+  
+  # Ordinary score labels
+  geom_text(
+    data = subset(ruler_age, !highlight),
+    aes(
+      x = theta,
+      y = y + 0.17,
+      label = score
+    ),
+    size = 3
+  ) +
+  
+  # Highlight score 15 label
+  geom_text(
+    data = subset(ruler_age, highlight),
+    aes(
+      x = theta,
+      y = y + 0.20,
+      label = score
+    ),
+    color = "red",
+    fontface = "bold",
+    size = 4
+  ) +
+  
+  scale_y_continuous(
+    breaks = c(1, 2, 3),
+    labels = c("55+", "35–54", "18–34"),
+    limits = c(0.6, 3.5)
+  ) +
+  
+  scale_x_continuous(
+    limits = c(-3, 3),
+    breaks = -3:3
+  ) +
+  
+  labs(
+    title = "Factor 2 Score Rulers by Age",
+    subtitle =
+      "Raw-score locations derived from the partial scalar invariance model",
+    x = expression(paste("F2 ", theta)),
+    y = NULL
+  ) +
+  
+  theme_classic() +
+  
+  theme(
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
